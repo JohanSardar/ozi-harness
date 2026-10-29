@@ -12,7 +12,7 @@ pnpm vp run --filter ozi build
 node apps/server/dist/bin.mjs serve --json
 ```
 
-Startup seeds a missing or empty data root at `~/ozi` with packaged defaults. `prompt.md` holds main's prompt, `skills/` holds skills, and `protected/` holds rules self-repair cannot change. Choose another root with `--data-root` or `OZI_DATA_ROOT`. Server state lives separately in `~/.ozi` (`--home` or `OZI_HOME`).
+Startup seeds a missing or empty data root at `~/ozi` with packaged defaults. `system.md` holds main's system prompt, `skills/` holds skills, and `protected/` holds rules self-repair cannot change. Choose another root with `--data-root` or `OZI_DATA_ROOT`. Server state lives separately in `~/.ozi` (`--home` or `OZI_HOME`).
 
 Run CLI commands with `node apps/server/dist/bin.mjs <command> --json`; `--help` lists them. `pair` prints a pairing URL for Settings → Connections in the desktop app. For another machine, serve with `--host 0.0.0.0` and use the server's reachable address in that URL.
 

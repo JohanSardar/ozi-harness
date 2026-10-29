@@ -19,7 +19,7 @@ const rules: Rule[] = [
     stage: "author",
     steps: [
       {
-        exec: "printf 'Fixed prompt\\n' > /data/prompt.md; printf 'Fixed skill\\n' > /data/skills/demo/SKILL.md",
+        exec: "printf 'Fixed prompt\\n' > /data/system.md; printf 'Fixed skill\\n' > /data/skills/demo/SKILL.md",
       },
     ],
   },
@@ -143,7 +143,7 @@ it("m6.publish one local fix commit activates prompt and skills on the next turn
   expect(await h.git("rev-parse", `${fix.commit_sha}^`)).toBe(fix.predecessor);
   expect(
     (await h.git("diff-tree", "--no-commit-id", "--name-only", "-r", fix.commit_sha)).split("\n"),
-  ).toEqual(["prompt.md", "skills/demo/SKILL.md"]);
+  ).toEqual(["skills/demo/SKILL.md", "system.md"]);
   expect(await h.git("status", "--porcelain")).toBe("");
   await active("Fixed prompt\n", "Fixed skill");
   await h.restart();
@@ -156,14 +156,14 @@ it("m6.publish one local fix commit activates prompt and skills on the next turn
 
 it("m6.recurrence-undo targeted revert preserves later committed and uncommitted edits and manual undo retries", async () => {
   h = await startHarness();
-  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8");
+  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8");
   const skill = await NodeFSP.readFile(NodePath.join(h.dataRoot, "skills/demo/SKILL.md"), "utf8");
   const fix = await publish();
   const skillPath = NodePath.join(h.dataRoot, "skills/demo/SKILL.md");
   await NodeFSP.unlink(skillPath);
   await NodeFSP.symlink(NodePath.join(h.dataRoot, "protected/rules.md"), skillPath);
   await expect(h.ozi("undo", fix.id)).rejects.toThrow();
-  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")).toBe(
+  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(
     "Fixed prompt\n",
   );
   expect((await h.ozi<Fix[]>("fixes"))[0]?.state).toBe("shipped");
@@ -198,18 +198,18 @@ it("m6.recurrence-undo targeted revert preserves later committed and uncommitted
 
 it("m6.edit-conflict restores the predecessor, preserves the user version and posts one blocker", async () => {
   h = await startHarness();
-  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8");
+  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8");
   const fix = await publish();
   await NodeFSP.writeFile(
-    NodePath.join(h.dataRoot, "prompt.md"),
+    NodePath.join(h.dataRoot, "system.md"),
     "User rewrote the fixed prompt\n",
   );
-  await h.git("add", "prompt.md");
+  await h.git("add", "system.md");
   await h.git("commit", "-m", "user: rewrite prompt");
   const userHead = await h.git("rev-parse", "HEAD");
   await h.ozi("undo", fix.id);
-  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")).toBe(original);
-  expect(await h.git("show", `${userHead}:prompt.md`)).toBe("User rewrote the fixed prompt");
+  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(original);
+  expect(await h.git("show", `${userHead}:system.md`)).toBe("User rewrote the fixed prompt");
   const fixes = await h.ozi<Fix[]>("fixes");
   expect(fixes[0]).toMatchObject({ state: "undone", conflict: 1 });
   const cards =
@@ -240,7 +240,7 @@ it.each([
   h = await startHarness({
     repairPause: `${operation === "conflict" ? "undo" : operation}:${point}`,
   });
-  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8");
+  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8");
   const originalSkill = await NodeFSP.readFile(
     NodePath.join(h.dataRoot, "skills/demo/SKILL.md"),
     "utf8",
@@ -252,8 +252,8 @@ it.each([
   } else {
     id = (await publish()).id;
     if (operation === "conflict") {
-      await NodeFSP.writeFile(NodePath.join(h.dataRoot, "prompt.md"), "Conflicting user edit\n");
-      await h.git("add", "prompt.md");
+      await NodeFSP.writeFile(NodePath.join(h.dataRoot, "system.md"), "Conflicting user edit\n");
+      await h.git("add", "system.md");
       await h.git("commit", "-m", "user: edit before undo");
     }
     void h.ozi("undo", id).catch(() => {});
@@ -270,7 +270,7 @@ it.each([
   if (point === "prepared") {
     await h.ozi("wait", "mistake", id, "failed");
     expect(await h.ozi("fixes")).toEqual([]);
-    expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")).toBe(original);
+    expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(original);
     expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "skills/demo/SKILL.md"), "utf8")).toBe(
       originalSkill,
     );
@@ -283,7 +283,7 @@ it.each([
     expect(fix.conflict).toBe(1);
     expect(await h.ozi("jobs")).toHaveLength(1);
   }
-  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")).toBe(
+  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(
     operation === "publish" ? "Fixed prompt\n" : original,
   );
   expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "skills/demo/SKILL.md"), "utf8")).toBe(

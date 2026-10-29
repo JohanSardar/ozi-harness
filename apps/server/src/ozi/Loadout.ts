@@ -23,7 +23,7 @@ export const readMainPrompt = Effect.fn("Ozi.readMainPrompt")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = dataRoot(config);
-  const prompt = yield* fs.readFileString(path.join(root, "prompt.md"));
+  const prompt = yield* fs.readFileString(path.join(root, "system.md"));
   const adhd = yield* fs
     .readFileString(path.join(root, "adhd.md"))
     .pipe(

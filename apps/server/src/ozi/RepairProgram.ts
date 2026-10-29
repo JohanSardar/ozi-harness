@@ -25,8 +25,8 @@ import * as readline from 'node:readline';
 
 const input = JSON.parse(fs.readFileSync('/case/input.json', 'utf8'));
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
-const prompt = fs.readFileSync('/data/prompt.md', 'utf8').replaceAll('{{ADHD}}', fs.existsSync('/data/adhd.md') ? fs.readFileSync('/data/adhd.md', 'utf8') : '');
-const loaded = input.main && ['baseline','candidate'].includes(input.stage) ? { 'prompt.md': sha(fs.readFileSync('/data/prompt.md')), ...(fs.existsSync('/data/adhd.md') ? { 'adhd.md': sha(fs.readFileSync('/data/adhd.md')) } : {}) } : {};
+const prompt = fs.readFileSync('/data/system.md', 'utf8').replaceAll('{{ADHD}}', fs.existsSync('/data/adhd.md') ? fs.readFileSync('/data/adhd.md', 'utf8') : '');
+const loaded = input.main && ['baseline','candidate'].includes(input.stage) ? { 'system.md': sha(fs.readFileSync('/data/system.md')), ...(fs.existsSync('/data/adhd.md') ? { 'adhd.md': sha(fs.readFileSync('/data/adhd.md')) } : {}) } : {};
 const effects = [];
 const unknown = [];
 const ordered = value => Array.isArray(value) ? value.map(ordered) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).sort(([a],[b]) => a.localeCompare(b)).map(([key,value]) => [key,ordered(value)])) : value;

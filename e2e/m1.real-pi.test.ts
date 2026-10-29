@@ -74,7 +74,7 @@ it("m1.main-loadout sends Pi and Ozi tools and the data-root prompt through real
     );
     await NodeFSP.writeFile(NodePath.join(h.dataRoot, "adhd.md"), "data-root-adhd-marker");
     const prompt = (
-      await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")
+      await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")
     ).replaceAll("{{ADHD}}", "data-root-adhd-marker");
     await h.ozi("say", "real-bridge-loadout");
     const result = await h.wait("ozi-main", "text:bridge-ok", 60);

@@ -204,7 +204,7 @@ it("m7.cli-text", async () => {
     {
       match: "OZI_REPAIR_AUTHOR",
       stage: "author",
-      steps: [{ exec: "printf 'Updated prompt\\n' > /data/prompt.md" }],
+      steps: [{ exec: "printf 'Updated prompt\\n' > /data/system.md" }],
     },
     { match: "text-start", stage: "baseline", steps: [{ say: "Text workers started" }] },
     { match: "text-start", stage: "candidate", steps: [{ say: "Corrected output" }] },

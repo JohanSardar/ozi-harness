@@ -40,7 +40,7 @@ const normalized = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 const decodePaths = Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 const encodePaths = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 const permitted = (name: string) =>
-  /^(?:prompt\.md|adhd\.md|skills\/[a-zA-Z0-9._/-]+)$/.test(name) &&
+  /^(?:system\.md|adhd\.md|skills\/[a-zA-Z0-9._/-]+)$/.test(name) &&
   !name.split("/").some((part) => part === "." || part === ".." || part === "");
 
 const make = Effect.gen(function* () {

@@ -58,62 +58,82 @@ const delegate = (task: string, provider?: string): Rule["steps"][number] => ({
   },
 });
 
-it.each(["missing", "empty"])("m1.fresh-install bootstraps a %s data root once", async () => {
-  const status = await h.status();
-  expect(status.main?.thread).toMatchObject({ role: "main", effectiveLoadout: { provider: "pi" } });
-  expect(status.snapshot.threads.filter((thread) => thread.role === "main")).toHaveLength(1);
-  expect(status.server.providers.map((provider) => provider.driver).sort()).toEqual([
-    "claudeAgent",
-    "codex",
-    "pi",
-  ]);
-  expect(
-    (await NodeFSP.stat(NodePath.join(h.home, "userdata/statev2.sqlite"))).size,
-  ).toBeGreaterThan(0);
-  const defaults = new URL("../apps/server/src/ozi/defaults/", import.meta.url);
-  const files = [
-    "prompt.md",
-    "protected/approvals.md",
-    "protected/contacts.md",
-    "protected/credentials.md",
-  ];
-  for (const file of files)
-    expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, file), "utf8")).toBe(
-      await NodeFSP.readFile(new URL(file, defaults), "utf8"),
+it.each(["missing", "empty"])(
+  "m1.fresh-install bootstraps a %s data root once and renames a legacy prompt.md",
+  async () => {
+    const status = await h.status();
+    expect(status.main?.thread).toMatchObject({
+      role: "main",
+      effectiveLoadout: { provider: "pi" },
+    });
+    expect(status.snapshot.threads.filter((thread) => thread.role === "main")).toHaveLength(1);
+    expect(status.server.providers.map((provider) => provider.driver).sort()).toEqual([
+      "claudeAgent",
+      "codex",
+      "pi",
+    ]);
+    expect(
+      (await NodeFSP.stat(NodePath.join(h.home, "userdata/statev2.sqlite"))).size,
+    ).toBeGreaterThan(0);
+    const defaults = new URL("../apps/server/src/ozi/defaults/", import.meta.url);
+    const files = [
+      "system.md",
+      "protected/approvals.md",
+      "protected/contacts.md",
+      "protected/credentials.md",
+    ];
+    for (const file of files)
+      expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, file), "utf8")).toBe(
+        await NodeFSP.readFile(new URL(file, defaults), "utf8"),
+      );
+    for (const directory of ["skills", "protected/cases"])
+      expect(await NodeFSP.readdir(NodePath.join(h.dataRoot, directory))).toEqual([]);
+    const prompt = (await NodeFSP.readFile(new URL("system.md", defaults), "utf8")).replaceAll(
+      "{{ADHD}}",
+      "",
     );
-  for (const directory of ["skills", "protected/cases"])
-    expect(await NodeFSP.readdir(NodePath.join(h.dataRoot, directory))).toEqual([]);
-  const prompt = (await NodeFSP.readFile(new URL("prompt.md", defaults), "utf8")).replaceAll(
-    "{{ADHD}}",
-    "",
-  );
-  expect(status.main?.thread.effectiveLoadout?.systemPromptSha256).toBe(
-    NodeCrypto.createHash("sha256").update(prompt).digest("hex"),
-  );
-  const git = async (...args: string[]) =>
-    (
-      await NodeUtil.promisify(NodeChildProcess.execFile)("git", ["-C", h.dataRoot, ...args])
-    ).stdout.trim();
-  expect(await git("rev-list", "--count", "HEAD")).toBe("1");
-  expect(await git("status", "--porcelain")).toBe("");
-  const snapshot = async () =>
-    Promise.all(
-      (await NodeFSP.readdir(h.dataRoot, { recursive: true })).sort().map(async (file) => {
-        const path = NodePath.join(h.dataRoot, file);
-        const stat = await NodeFSP.stat(path);
-        return [file, stat.mtimeMs, stat.isFile() ? await NodeFSP.readFile(path, "hex") : null];
-      }),
+    expect(status.main?.thread.effectiveLoadout?.systemPromptSha256).toBe(
+      NodeCrypto.createHash("sha256").update(prompt).digest("hex"),
     );
-  const initial = await snapshot();
-  await h.restart();
-  expect(await snapshot()).toEqual(initial);
-  await NodeFSP.appendFile(NodePath.join(h.dataRoot, "prompt.md"), "\nUser instructions.\n");
-  await NodeFSP.rm(NodePath.join(h.dataRoot, "protected/approvals.md"));
-  const edited = await snapshot();
-  await h.restart();
-  expect(await snapshot()).toEqual(edited);
-  expect(await git("rev-list", "--count", "HEAD")).toBe("1");
-});
+    const git = async (...args: string[]) =>
+      (
+        await NodeUtil.promisify(NodeChildProcess.execFile)("git", ["-C", h.dataRoot, ...args])
+      ).stdout.trim();
+    expect(await git("rev-list", "--count", "HEAD")).toBe("1");
+    expect(await git("status", "--porcelain")).toBe("");
+    const snapshot = async () =>
+      Promise.all(
+        (await NodeFSP.readdir(h.dataRoot, { recursive: true })).sort().map(async (file) => {
+          const path = NodePath.join(h.dataRoot, file);
+          const stat = await NodeFSP.stat(path);
+          return [file, stat.mtimeMs, stat.isFile() ? await NodeFSP.readFile(path, "hex") : null];
+        }),
+      );
+    const initial = await snapshot();
+    await h.restart();
+    expect(await snapshot()).toEqual(initial);
+    await NodeFSP.appendFile(NodePath.join(h.dataRoot, "system.md"), "\nUser instructions.\n");
+    await NodeFSP.rm(NodePath.join(h.dataRoot, "protected/approvals.md"));
+    const edited = await snapshot();
+    await h.restart();
+    expect(await snapshot()).toEqual(edited);
+    expect(await git("rev-list", "--count", "HEAD")).toBe("1");
+    await git("mv", "system.md", "prompt.md");
+    const identity = ["-c", "user.name=Test", "-c", "user.email=test@localhost"];
+    await git(...identity, "-c", "commit.gpgsign=false", "commit", "-qm", "Legacy prompt");
+    const legacy = await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8");
+    await h.restart();
+    await expect(NodeFSP.access(NodePath.join(h.dataRoot, "prompt.md"))).rejects.toThrow();
+    expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(legacy);
+    expect(await git("show", "--name-status", "--format=%s", "HEAD")).toMatch(
+      /^Rename prompt\.md to system\.md\n\nR\d+\tprompt\.md\tsystem\.md$/,
+    );
+    expect(await git("status", "--porcelain")).toBe("D protected/approvals.md");
+    const migrated = await snapshot();
+    await h.restart();
+    expect(await snapshot()).toEqual(migrated);
+  },
+);
 
 it("m1.main-loadout preserves the user's Pi model and thinking after resume and fork", async () => {
   const initial = await main();
@@ -126,7 +146,7 @@ it("m1.main-loadout preserves the user's Pi model and thinking after resume and 
     { id: "fastMode", value: false },
   ]);
   const prompt = (
-    await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")
+    await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")
   ).replaceAll("{{ADHD}}", "");
   expect(initial.thread.effectiveLoadout).toMatchObject({
     provider: "pi",
