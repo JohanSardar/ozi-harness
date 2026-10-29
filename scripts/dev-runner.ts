@@ -5,7 +5,7 @@ import * as NodeOS from "node:os";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NetService from "@t3tools/shared/Net";
-import { resolveGitWorktreePath, resolveWorktreeT3Home } from "@t3tools/shared/devHome";
+import { resolveCheckoutHome, resolveCheckoutPath } from "@t3tools/shared/devHome";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import * as Config from "effect/Config";
@@ -308,6 +308,7 @@ export const createDevRunnerEnv = Effect.fn("dev-runner.createDevRunnerEnv")(fun
   } else {
     delete output.OZI_HOME;
   }
+  output.OZI_DATA_ROOT = (yield* Path.Path).join(resolvedBaseDir, "data-root");
 
   // A dev-runner server is never launcher-managed. When the shell that runs
   // this script was itself spawned by the machine's managed t3 service (an
@@ -592,7 +593,7 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
     return yield* new DevRunnerHostNotProxiableError({ mode: input.mode, host: input.host });
   }
 
-  const worktreePath = yield* resolveGitWorktreePath(yield* HostProcess.WorkingDirectory);
+  const worktreePath = yield* resolveCheckoutPath(yield* HostProcess.WorkingDirectory);
 
   const { offset, source } = yield* resolveOffset({
     portOffset,
@@ -609,10 +610,7 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
   });
 
   const hostEnvironment = yield* HostProcess.Environment;
-  // A dev server started inside a worktree defaults to that worktree's own
-  // (gitignored) `.ozi` — see @t3tools/shared/devHome for why this must
-  // outrank an ambient OZI_HOME. `--home-dir` still wins.
-  const worktreeHome = yield* resolveWorktreeT3Home(yield* HostProcess.WorkingDirectory);
+  const worktreeHome = yield* resolveCheckoutHome(yield* HostProcess.WorkingDirectory);
   // Trim before choosing: `--home-dir ""` is not a selection, and treating it
   // as one would skip the worktree default and land on the shared home —
   // exactly the outcome this precedence exists to prevent.
@@ -764,7 +762,7 @@ const devRunnerCli = Command.make("dev-runner", {
   ),
   oziHome: Flag.String("home-dir").pipe(
     Flag.withDescription(
-      "Explicit Ozi data directory; runtime state is stored under userdata (equivalent to OZI_HOME). Inside a git worktree this defaults to that worktree's own .ozi so dev state stays off the shared home.",
+      "Explicit Ozi data directory; runtime state is stored under userdata (equivalent to OZI_HOME). Inside a git checkout this defaults to that checkout's own .ozi so dev state stays off the shared home.",
     ),
     Flag.optional,
     Flag.map(Option.getOrUndefined),
