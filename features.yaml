@@ -365,3 +365,25 @@ features:
         h4.skills,
       ]
     status: passing
+
+  - id: harness-completion
+    reqs: [pi-package, end-of-turn-check]
+    module: packages/ozi-pi/src/extension-completion.ts + Completion.ts + CompletionPolicy.ts + Evidence.ts + e2e/h5.pi.test.ts + e2e/h5.gui.test.ts
+    cli: [ozi-harness checks, ozi-harness wait]
+    milestone: h5
+    scenarios:
+      [
+        h5.review,
+        h5.continue,
+        h5.blocked,
+        h5.needs-user,
+        h5.malformed,
+        h5.stale,
+        h5.update,
+        h5.file-error,
+        h5.file-stale,
+        h5.duplicate,
+        h5.inbox-worker,
+        h5.gui,
+      ]
+    status: passing

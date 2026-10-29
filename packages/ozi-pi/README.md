@@ -16,7 +16,7 @@ Every submitted turn rereads `system.md`, replacing every `{{ADHD}}` with `adhd.
 
 Sessions start on `claude-bridge/claude-opus-5-5`, high thinking, fast off. The pinned `pi-claude-bridge@0.9.3` uses the Claude Agent SDK with no Claude settings sources or built-in tools. AskClaude is disabled, MCP is strict, auto memory is off. Anthropic API key and alternate-cloud environment settings are removed from the Pi process.
 
-Delegation stays in the data-root prompt: Ozi delegates work, stays responsive and defaults to Codex gpt-6.1-sol, xhigh, Fast. Connect the GUI's tools through Pi's own MCP configuration (`pi mcp add …`); the package does not start a server or invent a worker transport. GUI wiring and completion checks are separate tickets. The current server keeps its existing launch path.
+Delegation stays in the data-root prompt: Ozi delegates work, stays responsive and defaults to Codex gpt-6.1-sol, xhigh, Fast. Connect the GUI's tools through Pi's own MCP configuration (`pi mcp add …`); the package does not start a server or invent a worker transport. The GUI supplies delegation and ticket tools. The current server keeps its existing launch path.
 
 The package bundles the standalone [P3 Pi inbox extension](https://github.com/JohanSardar/ozi/pull/14) unchanged in `src/inbox.ts`. With the GUI's `OZI_MCP_URL` and four ticket tools connected, each settled turn starts an isolated native `--fork` check on the current model and thinking level. It files tickets for results or anything needing the user's answer or acknowledgement, closes acknowledged tickets and skips small talk. Source history stays untouched. Pi status events report the filed count or failure. The GUI may inject its copy too: the shared event-bus guard installs the hook once in either order. Forks set `OZI_INBOX_FORK=1`, retain their model and thinking and never run another inbox check. Without the GUI connection the hook is inactive.
 
@@ -55,4 +55,15 @@ ozi-harness wait replay REPLAY_ID finished --timeout 120 --data-root /absolute/d
 vp test run --root e2e --config h2.config.ts h4.pi.test.ts
 OZI_H4_REAL=1 vp test run --root e2e --config h2.config.ts h4.pi.test.ts
 node scripts/features.ts check h4
+```
+
+Before filing a worker's finished job as Review, main calls `completion_check` with its `workerId`, workspace evidence `files`, and the proposed Review `ticket` (the GUI's full ticket content). Optional `ticketId` updates an existing ticket. Inspect diffs, test output and exit status, files and PR state first; save output as evidence files when needed. The check reads the worker through the GUI and checks inherited history and file contents in an isolated, tool-free native Pi fork on the same model at low effort. Review includes what was verified. Gaps go back to the worker, decisions become Decide and human actions become Do, and three rounds without file progress become Read failure. Checker and evidence failures also file Read failure. Changed evidence or requests and cancellation invalidate the result. Direct worker Review creation/promotion is blocked. An inbox fork without worker activity can still file its own result; it cannot promote an unchecked worker claim. Include the group explicitly when updating a non-Review ticket.
+
+```sh
+ozi-harness checks --data-root /absolute/data-root --json
+ozi-harness wait check CHECK_ID checked --data-root /absolute/data-root --json
+vp test run --root e2e --config h2.config.ts h5.pi.test.ts
+OZI_H5_REAL=1 vp test run --root e2e --config h2.config.ts h5.pi.test.ts
+OZI_H5_GUI_ROOT=/absolute/gui-checkout vp test run --root e2e --config h2.config.ts h5.gui.test.ts
+node scripts/features.ts check h5
 ```
