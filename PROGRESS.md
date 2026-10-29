@@ -1,6 +1,6 @@
 # Progress
 
-Milestone 9 (Pi parity) is built and its E2E passes on `main`: M9 adds 18 scenarios, CI sharded across three runners runs `node scripts/features.ts check 9`, every requirement has a feature and all 35 features pass. Real-agent runs R1–R9 passed on the Ubuntu server under systemd. R7's Mac run used the MacBook Air because the MacBook Pro was asleep and offline; the Pro run follows when it is back.
+Milestone 9 (Pi parity) is built and its E2E passes on `main`: M9 adds 18 scenarios, `node scripts/features.ts check 9` passed, every requirement has a feature and all 35 features pass. Real-agent runs R1–R9 passed on the Ubuntu server under systemd. R7's Mac run used the MacBook Air because the MacBook Pro was asleep and offline; the Pro run follows when it is back.
 
 ## Done
 

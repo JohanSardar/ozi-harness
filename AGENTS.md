@@ -6,7 +6,7 @@ Agent runtime with a desktop app: one main agent the user talks to, which delega
 
 - Minimal: fewest words, least code. No code comments, no TODOs, no placeholders, no disabled code.
 - Cutting removes the whole vertical slice: callers, schema, UI, dependencies, tests.
-- Tests are E2E only (`e2e/`): real server, SQLite, files, git, bwrap, web client and `ozi` CLI. Fake only provider transports (`e2e/fakes`), the clock and external MCP. Await state with `ozi wait`, never sleeps. A unit test needs a written reason why E2E can't reach it.
+- Tests are E2E only (`e2e/`): real server, SQLite, files, git, bwrap, web client and `ozi` CLI. Fake only provider transports (`e2e/fakes`), the clock and external MCP. Await state with `ozi wait`, never sleeps. Run a feature's scenarios while building it the first time; CI runs only typecheck and lint. A unit test needs a written reason why E2E can't reach it.
 - Name each E2E test by its SPEC scenario ID first, e.g. `it("m1.fresh-install", …)`.
 - Keep `SPEC.md` and `features.yaml` current in the same change as the code. `node scripts/features.ts check <milestone>` must pass for finished milestones.
 - Everything goes through the `ozi` CLI (`--json`). If something can't be done with it, extend it; no one-off scripts.
