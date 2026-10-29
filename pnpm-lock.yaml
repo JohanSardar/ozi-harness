@@ -529,6 +529,22 @@ importers:
         specifier: 24.12.4
         version: 24.12.4
 
+  packages/ozi-pi:
+    dependencies:
+      cc-session-io:
+        specifier: 0.4.0
+        version: 0.4.0
+      pi-claude-bridge:
+        specifier: 0.9.3
+        version: 0.9.3(patch_hash=a88f936a3ef7d70fab051442bac0b5abccf2599616f813e5199ca0f3387111d2)(@anthropic-ai/sdk@0.129.0(zod@4.6.5))(@earendil-works/pi-ai@1.4.0(@aws-sdk/credential-provider-node@3.972.87)(@modelcontextprotocol/sdk@1.29.0(zod@4.6.5))(@smithy/signature-v4@5.7.4)(bufferutil@4.1.0)(undici@8.11.2)(utf-8-validate@6.0.6)(ws@8.22.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.5))(@earendil-works/pi-coding-agent@1.4.0(@aws-sdk/credential-provider-node@3.972.87)(@modelcontextprotocol/sdk@1.29.0(zod@4.6.5))(@smithy/signature-v4@5.7.4)(bufferutil@4.1.0)(utf-8-validate@6.0.6)(ws@8.22.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.5))(@earendil-works/pi-tui@1.4.0)(typebox@1.4.2)(zod@4.6.5)
+    devDependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: 1.4.0
+        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.87)(@modelcontextprotocol/sdk@1.29.0(zod@4.6.5))(@smithy/signature-v4@5.7.4)(bufferutil@4.1.0)(utf-8-validate@6.0.6)(ws@8.22.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.6.5)
+      '@types/node':
+        specifier: 24.12.4
+        version: 24.12.4
+
   packages/provider-core:
     dependencies:
       '@t3tools/contracts':

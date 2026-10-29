@@ -1,0 +1,36 @@
+{
+  "name": "@ozi/pi",
+  "version": "0.1.0",
+  "description": "Ozi main for Pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "files": [
+    "src",
+    "patch-bridge.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc-rs --noEmit"
+  },
+  "dependencies": {
+    "cc-session-io": "0.4.0",
+    "pi-claude-bridge": "0.9.3"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@types/node": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts",
+      "./src/bridge.mjs"
+    ]
+  }
+}

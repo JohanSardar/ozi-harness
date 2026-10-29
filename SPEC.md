@@ -132,6 +132,12 @@ Main's environment sets `ENABLE_TOOL_SEARCH=false` so Claude Code adds no deferr
 - Skills: `read_skill(name)` reads `skills/<name>/SKILL.md` on demand. Unknown names and path or symlink escapes fail.
 - Default main delegation: Codex `gpt-6.1-sol`, `reasoningEffort: xhigh`, `serviceTier: priority`. Workers receive one short role instruction to finish their brief, use available tools, handle computer-solvable interactions, ask only for missing decisions or human-only actions, avoid CAPTCHA solvers, and report plainly.
 
+### Standalone Pi package (H2)
+
+`packages/ozi-pi` is a Pi package loaded with `OZI_DATA_ROOT=/absolute/data-root pi -e ./packages/ozi-pi` or installed with `pi install ./packages/ozi-pi`. `--ozi-data-root` overrides the environment; the default is `~/ozi`. It reads an existing data root without seeding or migrating it. Each submitted turn replaces Pi's prompt prefix with `system.md`, substituting optional `adhd.md` into every `{{ADHD}}`. Pi's context and appended prompt remain. Data-root skills use Pi's discovery at startup and reload and its on-demand `read` tool.
+
+The package selects `claude-bridge/claude-opus-5-5`, high, fast off, through pinned `pi-claude-bridge@0.9.3` and the Claude subscription. Its bridge adapter carries the existing SDK isolation patch, adds the session reader export needed by Pi's bundled loader and rebuilds the bridge mirror when the prompt changes. API-key and alternate-cloud environment settings are removed. Delegation policy comes from `system.md`; tool transports come from Pi's MCP configuration. The package does not launch the GUI or replace the current server; GUI wiring, self-repair, completion checks and inbox hooks follow separately.
+
 ## Desktop identity
 
 Ozi coexists with T3 Code. Desktop state and the bundled `ozi` shim live under `~/.ozi` or `OZI_HOME`; T3 environment variables and legacy profiles are never read or migrated. Electron uses `Ozi Beta`/`Ozi Dev`, profiles `ozi`/`ozi-dev`, app ID `com.ozi.app` (development `com.ozi.app.dev`) and schemes `ozi`/`ozi-dev`. Locks, safe storage, passkey groups, desktop entries, capture services, browser profiles, caches and WSL paths use Ozi's identity.
@@ -314,3 +320,7 @@ Print mode (`ozi -p`, `ozi --print`, `ozi print`) sends each prompt to main or `
 - `m9.print`: piped stdin plus a message reach main as one prompt and only its reply prints; several prompts run in order; an `@file` argument attaches the file; `--json` returns the run; `--mode json` streams events then the result; a question and a failed run exit non-zero with one line.
 - `m9.remote-pi`: a paired remote client's `ozi pi mcp add` writes main's server agent directory without creating one on the client; empty arguments fail in one line, Pi failures preserve stderr and exit code, and local Pi commands still run with the server stopped.
 - `m9.tui-appearance`: a custom Pi theme and `keybindings.json` in the local Pi agent directory change the app's colors and keys.
+
+### H2 Standalone Pi
+
+- `h2.pi-package`: real Pi loads the package with its own `-e` mechanism, selects the subscription bridge with high thinking and fast off, sends the data-root prompt with absent and present ADHD content across two turns without restarting, discovers a data-root skill and reads it through Pi's tool. An ambient Anthropic API key is never sent.
