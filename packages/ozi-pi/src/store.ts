@@ -35,6 +35,7 @@ export function openStore(stateDir: string) {
       before_head TEXT, target TEXT NOT NULL, snapshot TEXT NOT NULL, paths_json TEXT NOT NULL,
       conflict INTEGER NOT NULL DEFAULT 0, checkpoint TEXT, error TEXT
     );
+    CREATE TABLE IF NOT EXISTS ozi_checks (id TEXT PRIMARY KEY, record TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS ozi_sessions (id TEXT PRIMARY KEY, file TEXT, active INTEGER NOT NULL, snapshot TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS ozi_user_messages (session TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY(session,id));
     CREATE TABLE IF NOT EXISTS ozi_blockers (id TEXT PRIMARY KEY, detail TEXT NOT NULL);

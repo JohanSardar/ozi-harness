@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { checks, type Check } from "./extension-completion.ts";
 import * as Effect from "effect/Effect";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
@@ -45,6 +46,8 @@ try {
         result = logMistake(db, values.session, input);
       } else if (command === "mistakes" || command === "replays" || command === "fixes") {
         result = list(db, command);
+      } else if (command === "checks") {
+        result = checks(db);
       } else if (command === "sessions") {
         result = db.prepare("SELECT id,file,active FROM ozi_sessions").all();
       } else if (command === "events") {
@@ -54,23 +57,34 @@ try {
       } else if (command === "blockers") {
         result = db.prepare("SELECT * FROM ozi_blockers").all();
       } else if (command === "wait") {
-        if (!["mistake", "replay", "fix"].includes(id ?? "") || !target || !wanted)
-          throw new Error("wait requires mistake|replay|fix ID STATE");
+        if (!["mistake", "replay", "fix", "check"].includes(id ?? "") || !target || !wanted)
+          throw new Error("wait requires mistake|replay|fix|check ID STATE");
         const table = id === "mistake" ? "mistakes" : id === "replay" ? "replays" : "fixes";
         const seconds = Number(values.timeout ?? "120");
         if (!Number.isFinite(seconds) || seconds <= 0) throw new Error("invalid-timeout");
         result = await Effect.runPromise(
-          Effect.callback<Mistake | Replay | Fix>((resume) => {
+          Effect.callback<Mistake | Replay | Fix | Check>((resume) => {
             let finished = false;
             const check = () => {
               if (finished) return;
-              const row = list<Mistake | Replay | Fix>(db, table).find((row) => row.id === target);
+              const row = (
+                id === "check" ? checks(db) : list<Mistake | Replay | Fix>(db, table)
+              ).find((row) => row.id === target);
               const status = row && ("status" in row ? row.status : row.state);
               if (
                 row &&
                 (status === wanted ||
                   ("checkpoint" in row && wanted === `at:${row.checkpoint}`) ||
-                  (wanted === "finished" && ["passed", "failed"].includes(status!)))
+                  (wanted === "finished" &&
+                    [
+                      "passed",
+                      "failed",
+                      "checked",
+                      "continued",
+                      "blocked",
+                      "needs_user",
+                      "superseded",
+                    ].includes(status!)))
               ) {
                 finished = true;
                 watcher.close();
@@ -87,7 +101,7 @@ try {
         );
       } else
         throw new Error(
-          "Usage: ozi-harness mistakes|replays|fixes|undo|wait|sessions|events|blockers --data-root PATH --json",
+          "Usage: ozi-harness mistakes|replays|fixes|undo|checks|wait|sessions|events|blockers --data-root PATH --json",
         );
     } finally {
       db.close();

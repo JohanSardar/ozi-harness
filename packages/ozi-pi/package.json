@@ -17,6 +17,8 @@
   ],
   "type": "module",
   "exports": {
+    "./Evidence": "./src/Evidence.ts",
+    "./CompletionPolicy": "./src/CompletionPolicy.ts",
     "./RepairHost": "./src/RepairHost.ts",
     "./RepairModel": "./src/RepairModel.ts",
     "./RepairProgram": "./src/RepairProgram.ts",

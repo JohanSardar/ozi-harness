@@ -1,6 +1,7 @@
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
+import { installCompletion } from "./extension-completion.ts";
 import { installRepair } from "./extension-repair.ts";
 import { locked, statePath, withEngine } from "./repair.ts";
 import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -17,6 +18,7 @@ export default function ozi(pi: ExtensionAPI) {
     return NodePath.resolve(root);
   };
   installRepair(pi, dataRoot);
+  installCompletion(pi, dataRoot);
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.ANTHROPIC_AUTH_TOKEN;
   delete process.env.CLAUDE_CODE_USE_BEDROCK;

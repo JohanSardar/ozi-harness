@@ -357,3 +357,23 @@ The standalone Pi package owns repair and the shared M5–M6 sandbox and publish
 - `h4.crash-undo`: killing the CLI after its undo journal is committed recovers the complete predecessor before Pi accepts the next prompt, with one confirmed undo.
 - `h4.package`: the CLI runs from an installed `node_modules` package without a build.
 - `h4.skills`: native Pi file reads load the candidate skill during replay and the active skill on the next turn; undo restores it.
+
+### H5 Harness completion
+
+The standalone package requires `completion_check({workerId, files, ticket, ticketId?})` before filing a worker's finished job as Review. Main first inspects diffs, test output and exit status, files and PR state through its tools. The check reads the completed worker through the GUI, hashes workspace files with the existing evidence reader, and forks main's completed native prefix into an isolated Pi process on the same subscription model at low effort, without tools, extensions or inbox recursion. The fork judges the proposed Review against the actual history and evidence, returning the existing completion verdict plus specific verified facts. File and worker evidence and the current request are checked again before delivery; changes or cancellation supersede the result.
+
+A pass creates or updates Review through the GUI's `ticket_*` tools with verified facts and evidence references appended. Continue sends specific missing obligations to the worker; three rounds without verified file progress file a Read failure. Decisions and approvals file Decide; human actions file Do. Missing history, evidence, malformed output, checker failure or its 120-second deadline file Read failure and never Review. Direct worker Review creation or promotion is blocked; an inbox fork with no worker activity can still file its own turn result. The GUI owns ticket storage and attaches calling-session IDs. `ozi-harness checks --json` exposes native request and worker IDs, verdicts, evidence, verified facts, failure state and delivery receipts; `wait check <id> <state>` subscribes before reading.
+
+- `h5.review`: real Pi and Claude Code with fake inference and external GUI MCP reject unchecked Review creation/promotion, verify real files and a git diff, and file one Review with verified facts. `OZI_H5_REAL=1` uses the real subscription for the same check.
+- `h5.continue`: a missing test sends the worker back with the gap and creates no Review.
+- `h5.blocked`: three unchanged rounds send back twice and then file Read failure.
+- `h5.needs-user`: a human approval requirement files Decide without Review.
+- `h5.malformed`: malformed checker output files Read failure.
+- `h5.stale`: worker evidence changing during the check supersedes it without delivery.
+- `h5.update`: an existing ticket becomes Review only through a verified update.
+- `h5.file-error`: unavailable evidence files fail closed without checker inference or Review.
+- `h5.file-stale`: file contents changing during verification supersede the check without delivery.
+- `h5.duplicate`: repeating a passed check against unchanged evidence returns the existing receipt without a second ticket.
+- `h5.gui`: with `OZI_H5_GUI_ROOT` pointing to an I2-capable GUI checkout, real subscription Pi changes files, main receives its review request through the composer, and the inbox shows a verified Review linked to main. State is temporary, both dev servers stop, and a screenshot is retained.
+
+- `h5.inbox-worker`: an inbox fork inheriting an unchecked worker report cannot bypass the completion gate and file Review.

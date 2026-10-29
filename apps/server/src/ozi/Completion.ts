@@ -1,3 +1,4 @@
+import { settle } from "@ozi/pi/CompletionPolicy";
 import * as CommandReceiptStore from "../orchestration-v2/CommandReceiptStore.ts";
 import {
   CommandId,
@@ -262,22 +263,12 @@ const make = Effect.gen(function* () {
           (evidence) =>
             !check.evidence.some((previous) => evidenceKey(previous) === evidenceKey(evidence)),
         );
-        const unsuccessfulRounds = superseded
-          ? check.unsuccessfulRounds
-          : verdict?.verdict === "done" || progress
-            ? 0
-            : check.unsuccessfulRounds + 1;
-        const state = superseded
-          ? "superseded"
-          : verdict?.verdict === "done"
-            ? "checked"
-            : verdict?.verdict === "needs_user"
-              ? "needs_user"
-              : unsuccessfulRounds >= 3
-                ? "blocked"
-                : verdict?.verdict === "continue"
-                  ? "continued"
-                  : "checking";
+        const { state, unsuccessfulRounds } = settle(
+          verdict,
+          check.unsuccessfulRounds,
+          progress,
+          superseded,
+        );
         const misses = verdict?.verdict === "continue" ? [verdict.missing] : error ? [error] : [];
         yield* save(
           {
