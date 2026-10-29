@@ -80,7 +80,7 @@ const repairRules = (
     steps: [
       ...(options.inference ? [{ inference: true } as const] : []),
       ...(options.author ?? [
-        { exec: "printf 'Fixed prompt\\n' > /data/prompt.md" },
+        { exec: "printf 'Fixed prompt\\n' > /data/system.md" },
         { say: "authored" },
       ]),
     ],
@@ -374,7 +374,7 @@ it("m5.correction-repairs host OAuth inference keeps all native repair branches 
       expect(JSON.stringify(proof)).not.toContain(token);
     }
   };
-  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8");
+  const original = await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8");
   const attachment = NodePath.join(h.root, "frozen.txt");
   await NodeFSP.writeFile(attachment, "Frozen attachment");
   const effects: Rule["steps"] = [
@@ -394,7 +394,7 @@ it("m5.correction-repairs host OAuth inference keeps all native repair branches 
   await correct(
     repairRules({
       inference: true,
-      author: [...probe, { exec: "printf 'Fixed prompt\\n' > /data/prompt.md" }],
+      author: [...probe, { exec: "printf 'Fixed prompt\\n' > /data/system.md" }],
       baseline: [...probe, ...effects, { say: "wrong outcome" }],
       candidate: [...probe, ...effects, { say: "expected outcome" }],
     }),
@@ -423,11 +423,11 @@ it("m5.correction-repairs host OAuth inference keeps all native repair branches 
   expect(await h.ozi("jobs")).toEqual([]);
   expect(evidence.publication).toBe("local");
   await h.ozi("wait", "mistake", row.id, "shipped");
-  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")).toBe(
+  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(
     "Fixed prompt\n",
   );
   await h.ozi("undo", row.id);
-  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "prompt.md"), "utf8")).toBe(original);
+  expect(await NodeFSP.readFile(NodePath.join(h.dataRoot, "system.md"), "utf8")).toBe(original);
   for (const provider of ["codex", "claudeAgent"]) {
     const title = `replay worker ${provider}`;
     const fallback: Rule = {
@@ -716,13 +716,13 @@ it("m5.protected-denied dangling, absolute and looping links fail before publish
 
 it("m5.false-case filesystem failures retain the operation and missing path", async () => {
   const row = await log(await seed());
-  await correct(repairRules({ author: [{ exec: "rm /data/prompt.md" }] }));
+  await correct(repairRules({ author: [{ exec: "rm /data/system.md" }] }));
   const replay = await waitReplay(row.id, "failed");
   expect(replay.reason).toBe("publisher-failed");
   const failure = JSON.parse(replay.evidence_json).failure;
   expect(failure.stage).toBe("publisher");
   expect(failure.cause).toContain("ENOENT");
-  expect(failure.cause).toContain("prompt.md");
+  expect(failure.cause).toContain("system.md");
 });
 
 it("m5.false-case sandbox timeouts retain their cause and survive restart", async () => {
@@ -779,7 +779,7 @@ it("m5.no-credentials native replays cannot read credentials or reach an effect 
     const probe = `/runtime/node -e 'const fs=require("fs");const cp=require("child_process");const denied=${JSON.stringify(credentials)}.every(path=>{try{fs.readFileSync(path);return false}catch{return true}});(async()=>{const networkDenied=await fetch("http://127.0.0.1:${address.port}").then(()=>false,()=>true);const bodies=[{tools:[{type:"web_search"}]},{mcp_servers:[{url:"http://127.0.0.1:${address.port}"}]},{messages:[{type:"image",source:{type:"url",url:"http://127.0.0.1:${address.port}"}}]}];const statuses=await Promise.all(bodies.map(body=>fetch(process.env.ANTHROPIC_BASE_URL+"/v1/messages",{method:"POST",body:JSON.stringify(body)}).then(response=>response.status)));const forbidden=await fetch(process.env.ANTHROPIC_BASE_URL+"/v1/files",{method:"POST",body:"{}"});cp.execFileSync("/runtime/node",["--check","/launcher/inference.mjs"]);console.log(JSON.stringify({credentialsDenied:denied,networkDenied,inferenceDenied:statuses.every(status=>status===403)&&forbidden.status===403}))})()'`;
     await correct(
       repairRules({
-        author: [{ exec: probe }, { exec: "printf 'Fixed prompt\\n' > /data/prompt.md" }],
+        author: [{ exec: probe }, { exec: "printf 'Fixed prompt\\n' > /data/system.md" }],
         baseline: [{ exec: probe }, { say: "wrong outcome" }],
         candidate: [{ exec: probe }, { say: "expected outcome" }],
       }),

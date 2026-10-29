@@ -28,17 +28,44 @@ const make = Effect.gen(function* () {
   const path = yield* Path.Path;
   const config = yield* ServerConfig.ServerConfig;
   const runner = yield* ProcessRunner.ProcessRunner;
+  const git = (args: ReadonlyArray<string>) =>
+    runner.run({ command: "git", args: [...args], cwd: config.dataRoot, timeout: "15 seconds" });
+  const commit = (message: string, ...paths: ReadonlyArray<string>) =>
+    git([
+      "-c",
+      "user.name=Ozi",
+      "-c",
+      "user.email=ozi@localhost",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "core.hooksPath=.git/hooks",
+      "commit",
+      "-m",
+      message,
+      ...(paths.length ? ["--", ...paths] : []),
+    ]);
   const initialize = Effect.fn("DataRoot.initialize")(function* () {
     const entries = yield* fs
       .readDirectory(config.dataRoot)
       .pipe(
         Effect.catch((error) =>
-          error.reason._tag === "NotFound" ? Effect.succeed([]) : Effect.fail(error),
+          error.reason._tag === "NotFound" ? Effect.succeed<Array<string>>([]) : Effect.fail(error),
         ),
       );
-    if (entries.length > 0) return;
+    if (entries.length > 0) {
+      if (!entries.includes("prompt.md") || entries.includes("system.md")) return;
+      if ((yield* git(["mv", "--", "prompt.md", "system.md"])).code !== 0)
+        return yield* fs.rename(
+          path.join(config.dataRoot, "prompt.md"),
+          path.join(config.dataRoot, "system.md"),
+        );
+      const renamed = yield* commit("Rename prompt.md to system.md", "prompt.md", "system.md");
+      if (renamed.code !== 0) return yield* new DataRootError({ cause: renamed.stderr });
+      return;
+    }
     const files = [
-      "prompt.md",
+      "system.md",
       "protected/approvals.md",
       "protected/contacts.md",
       "protected/credentials.md",
@@ -50,29 +77,12 @@ const make = Effect.gen(function* () {
       yield* fs.makeDirectory(path.join(config.dataRoot, directory), { recursive: true });
     for (const [index, file] of files.entries())
       yield* fs.writeFileString(path.join(config.dataRoot, file), contents[index]!, { flag: "wx" });
-    for (const args of [
-      ["init", "--initial-branch=main", "--template="],
-      ["add", "--", ...files],
-      [
-        "-c",
-        "user.name=Ozi",
-        "-c",
-        "user.email=ozi@localhost",
-        "-c",
-        "commit.gpgsign=false",
-        "-c",
-        "core.hooksPath=.git/hooks",
-        "commit",
-        "-m",
-        "Initialize Ozi data root",
-      ],
+    for (const step of [
+      git(["init", "--initial-branch=main", "--template="]),
+      git(["add", "--", ...files]),
+      commit("Initialize Ozi data root"),
     ]) {
-      const result = yield* runner.run({
-        command: "git",
-        args,
-        cwd: config.dataRoot,
-        timeout: "15 seconds",
-      });
+      const result = yield* step;
       if (result.code !== 0) return yield* new DataRootError({ cause: result.stderr });
     }
   });

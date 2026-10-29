@@ -238,7 +238,7 @@ const make = Effect.gen(function* () {
       else return yield* fail("special-file-denied");
     });
     const entries = yield* fs.readDirectory(source);
-    for (const name of ["prompt.md", "adhd.md", "skills", "protected"])
+    for (const name of ["system.md", "adhd.md", "skills", "protected"])
       if (entries.includes(name)) yield* visit(name);
     yield* fs.makeDirectory(path.join(target, "protected"), { recursive: true });
   });
@@ -658,7 +658,7 @@ const make = Effect.gen(function* () {
         changed.some(
           (name) =>
             name.startsWith("protected/") ||
-            !/^(?:prompt\.md|adhd\.md|skills\/[a-zA-Z0-9._/-]+)$/.test(name) ||
+            !/^(?:system\.md|adhd\.md|skills\/[a-zA-Z0-9._/-]+)$/.test(name) ||
             name.split("/").includes(".."),
         )
       )

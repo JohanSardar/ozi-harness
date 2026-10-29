@@ -34,7 +34,7 @@ it("m5.correction-repairs real Pi and Claude Code replay main through the confin
       if (messages.includes('"tool_result"')) return { text: "authored" };
       const write = tools.find((tool) => /(?:__|^)write$/.test(tool.name));
       if (!write) throw new Error(`Missing author write: ${JSON.stringify(tools)}`);
-      return { tool: write.name, arguments: { path: "/data/prompt.md", content: fixed } };
+      return { tool: write.name, arguments: { path: "/data/system.md", content: fixed } };
     }
     if (system.includes("runtime completion checker"))
       return { text: '{"verdict":"done","useful":false}' };
