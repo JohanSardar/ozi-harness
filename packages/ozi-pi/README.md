@@ -16,7 +16,11 @@ Every submitted turn rereads `system.md`, replacing every `{{ADHD}}` with `adhd.
 
 Sessions start on `claude-bridge/claude-opus-5-5`, high thinking, fast off. The pinned `pi-claude-bridge@0.9.3` uses the Claude Agent SDK with no Claude settings sources or built-in tools. AskClaude is disabled, MCP is strict, auto memory is off. Anthropic API key and alternate-cloud environment settings are removed from the Pi process.
 
-Delegation stays in the data-root prompt: Ozi delegates work, stays responsive and defaults to Codex gpt-6.1-sol, xhigh, Fast. Connect the GUI's tools through Pi's own MCP configuration (`pi mcp add …`); the package does not start a server or invent a worker transport. GUI wiring, completion checks and inbox hooks are separate tickets. The current server keeps its existing launch path.
+Delegation stays in the data-root prompt: Ozi delegates work, stays responsive and defaults to Codex gpt-6.1-sol, xhigh, Fast. Connect the GUI's tools through Pi's own MCP configuration (`pi mcp add …`); the package does not start a server or invent a worker transport. GUI wiring and completion checks are separate tickets. The current server keeps its existing launch path.
+
+The package bundles the standalone [P3 Pi inbox extension](https://github.com/JohanSardar/ozi/pull/14) unchanged in `src/inbox.ts`. With the GUI's `OZI_MCP_URL` and four ticket tools connected, each settled turn starts an isolated native `--fork` check on the current model and thinking level. It files tickets for results or anything needing the user's answer or acknowledgement, closes acknowledged tickets and skips small talk. Source history stays untouched. Pi status events report the filed count or failure. The GUI may inject its copy too: the shared event-bus guard installs the hook once in either order. Forks set `OZI_INBOX_FORK=1`, retain their model and thinking and never run another inbox check. Without the GUI connection the hook is inactive.
+
+The GUI may also supply `OZI_PI_INBOX_CONTEXT_FILE` with the source run ID; P3 captures it for the fork as `OZI_INBOX_RUN_ID`. The connected MCP transport remains responsible for forwarding this provenance to the GUI.
 
 Verify without a build:
 
@@ -25,6 +29,12 @@ vp test run --root e2e --config h2.config.ts h2.pi.test.ts
 vp run --filter @ozi/pi typecheck
 vp lint packages/ozi-pi e2e/h2.pi.test.ts e2e/h2.config.ts
 node scripts/features.ts check h2
+```
+
+```sh
+vp test run --root e2e --config h2.config.ts h3.pi-inbox.test.ts
+OZI_H3_REAL=1 vp test run --root e2e --config h2.config.ts h3.pi-inbox.test.ts
+node scripts/features.ts check h3
 ```
 
 Self-repair requires Linux and bubblewrap (`bwrap`); logging remains available elsewhere and replay fails closed. `repair_context` supplies native IDs for `log_mistake`. A later direct user correction or repeated fingerprint triggers serial confined authoring, baseline/candidate forks and an independent observer. Only prompt, ADHD and skill changes can publish; protected files stay read-only. Each approved fix activates one local data-root commit. Recurrence undoes it. Nothing pushes.

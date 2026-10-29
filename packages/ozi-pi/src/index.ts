@@ -26,6 +26,7 @@ export default function ozi(pi: ExtensionAPI) {
   process.env.ENABLE_TOOL_SEARCH = "false";
 
   pi.on("session_start", async (_event, ctx) => {
+    if (process.env.OZI_INBOX_FORK === "1") return;
     const model = ctx.modelRegistry.find("claude-bridge", "claude-opus-5-5");
     if (!model || !(await pi.setModel(model)))
       throw new Error("Ozi requires claude-bridge/claude-opus-5-5");

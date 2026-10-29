@@ -48,7 +48,8 @@
   "pi": {
     "extensions": [
       "./src/index.ts",
-      "./src/bridge.mjs"
+      "./src/bridge.mjs",
+      "./src/inbox.ts"
     ]
   }
 }

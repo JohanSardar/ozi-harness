@@ -136,7 +136,13 @@ Main's environment sets `ENABLE_TOOL_SEARCH=false` so Claude Code adds no deferr
 
 `packages/ozi-pi` is a Pi package loaded with `OZI_DATA_ROOT=/absolute/data-root pi -e ./packages/ozi-pi` or installed with `pi install ./packages/ozi-pi`. `--ozi-data-root` overrides the environment; the default is `~/ozi`. It reads an existing data root without seeding or migrating it. Each submitted turn replaces Pi's prompt prefix with `system.md`, substituting optional `adhd.md` into every `{{ADHD}}`. Pi's context and appended prompt remain. Data-root skills use Pi's discovery at startup and reload and its on-demand `read` tool.
 
-The package selects `claude-bridge/claude-opus-5-5`, high, fast off, through pinned `pi-claude-bridge@0.9.3` and the Claude subscription. Its bridge adapter carries the existing SDK isolation patch, adds the session reader export needed by Pi's bundled loader and rebuilds the bridge mirror when the prompt changes. API-key and alternate-cloud environment settings are removed. Delegation policy comes from `system.md`; tool transports come from Pi's MCP configuration. The package does not launch the GUI or replace the current server; GUI wiring, self-repair, completion checks and inbox hooks follow separately.
+The package selects `claude-bridge/claude-opus-5-5`, high, fast off, through pinned `pi-claude-bridge@0.9.3` and the Claude subscription. Its bridge adapter carries the existing SDK isolation patch, adds the session reader export needed by Pi's bundled loader and rebuilds the bridge mirror when the prompt changes. API-key and alternate-cloud environment settings are removed. Delegation policy comes from `system.md`; tool transports come from Pi's MCP configuration. The package does not launch the GUI or replace the current server; GUI wiring and completion checks follow separately.
+
+### Packaged Pi inbox (H3)
+
+`@ozi/pi` ships P3's standalone Pi inbox extension. With `OZI_MCP_URL` and the four ticket tools connected through Pi's MCP configuration, a settled, non-aborted turn snapshots native history and starts an asynchronous `--fork` check with the same model and thinking level. Only `ticket_create`, `ticket_update`, `ticket_close` and `ticket_list` are available to it. The source conversation remains untouched and can accept another turn. The check lists open tickets, files anything requiring an answer or acknowledgement, closes acknowledged tickets and skips small talk. Pi status events report one quiet inbox check with the filed count or failure; checks have a two-minute deadline and clean up their temporary fork.
+
+The extension's shared event-bus guard prevents double installation when the GUI also injects P3. `OZI_INBOX_FORK=1` suppresses recursive checks and preserves the fork's model and thinking selection. Without the GUI MCP connection the extension does nothing.
 
 ## Desktop identity
 
@@ -324,6 +330,13 @@ Print mode (`ozi -p`, `ozi --print`, `ozi print`) sends each prompt to main or `
 ### H2 Standalone Pi
 
 - `h2.pi-package`: real Pi loads the package with its own `-e` mechanism, selects the subscription bridge with high thinking and fast off, sends the data-root prompt with absent and present ADHD content across two turns without restarting, discovers a data-root skill and reads it through Pi's tool. An ambient Anthropic API key is never sent.
+
+### H3 Packaged inbox
+
+- `h3.pi-inbox`: plain Pi loads the inbox extension from `@ozi/pi`, files one Review ticket from an isolated native fork, skips small talk and closes an acknowledged ticket. Forks retain the source model, thinking and conversation with only the four ticket tools; source history stays unchanged. `OZI_H3_REAL=1` checks filing through the real Claude subscription.
+- `h3.gui-dedup`: GUI injection before or after the package produces one check per turn and one ticket, using the existing shared event-bus guard.
+- `h3.no-mcp`: plain Pi without a GUI MCP connection continues normally without an inbox check.
+- `h3.fork`: an inbox fork never installs another check.
 
 ### H4 Harness repair
 
