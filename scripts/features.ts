@@ -9,7 +9,7 @@ interface Feature {
   reqs: string[];
   module: string;
   cli: string[];
-  milestone: number;
+  milestone: number | "h2";
   scenarios: string[];
   status: "planned" | "building" | "passing";
 }
@@ -23,7 +23,9 @@ const graph = parse(await Effect.runPromise(fs.readFileString(`${root}features.y
   features: Feature[];
 };
 const spec = await Effect.runPromise(fs.readFileString(`${root}SPEC.md`));
-const specScenarios = new Set([...spec.matchAll(/^- `(m\d\.[a-z0-9-]+)`/gm)].map((m) => m[1]!));
+const specScenarios = new Set(
+  [...spec.matchAll(/^- `((?:m\d|h2)\.[a-z0-9-]+)`/gm)].map((m) => m[1]!),
+);
 const passed = new Set<string>();
 const failed = new Set<string>();
 for (const name of await Effect.runPromise(fs.readDirectory(`${root}e2e`)))
@@ -39,7 +41,7 @@ for (const s of failed) passed.delete(s);
 
 const scenarioState = (s: string) => (passed.has(s) ? "pass" : "todo");
 
-function check(milestone: number) {
+function check(milestone: number | "h2") {
   const errors: string[] = [];
   const covered = new Set(graph.features.flatMap((f) => f.reqs));
   for (const r of Object.keys(graph.requirements))
@@ -51,7 +53,13 @@ function check(milestone: number) {
     for (const s of f.scenarios) {
       mapped.add(s);
       if (!specScenarios.has(s)) errors.push(`${f.id}: scenario ${s} not in SPEC.md`);
-      if ((f.milestone <= milestone || f.status === "passing") && !passed.has(s))
+      if (
+        (milestone === "h2"
+          ? f.milestone === milestone
+          : (typeof f.milestone === "number" && f.milestone <= milestone) ||
+            f.status === "passing") &&
+        !passed.has(s)
+      )
         errors.push(`${f.id}: scenario ${s} not passing`);
     }
   }
@@ -71,7 +79,7 @@ function html() {
   const rows = graph.features
     .map(
       (f) =>
-        `<tr><td>M${f.milestone}</td><td>${f.id}</td><td>${f.reqs.map((r) => `<span title="${esc(graph.requirements[r] ?? "")}">${r}</span>`).join(" ")}</td><td>${f.module}</td><td>${f.cli.join(" ")}</td><td>${f.scenarios.map((s) => `<span class="${scenarioState(s)}">${s}</span>`).join(" ")}</td><td>${f.status}</td></tr>`,
+        `<tr><td>${typeof f.milestone === "number" ? "M" : ""}${f.milestone}</td><td>${f.id}</td><td>${f.reqs.map((r) => `<span title="${esc(graph.requirements[r] ?? "")}">${r}</span>`).join(" ")}</td><td>${f.module}</td><td>${f.cli.join(" ")}</td><td>${f.scenarios.map((s) => `<span class="${scenarioState(s)}">${s}</span>`).join(" ")}</td><td>${f.status}</td></tr>`,
     )
     .join("\n");
   Effect.runSync(
@@ -82,9 +90,9 @@ function html() {
 }
 
 const [command, arg] = process.argv.slice(2);
-if (command === "check") check(Number(arg ?? 0));
+if (command === "check") check(arg === "h2" ? arg : Number(arg ?? 0));
 else if (command === "html") html();
 else {
-  Effect.runSync(Console.error("usage: node scripts/features.ts check [milestone] | html"));
+  Effect.runSync(Console.error("usage: node scripts/features.ts check [milestone|h2] | html"));
   process.exit(2);
 }
