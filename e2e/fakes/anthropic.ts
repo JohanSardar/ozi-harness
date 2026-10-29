@@ -57,7 +57,7 @@ export async function startAnthropic(reply?: (input: AnthropicRequest) => Anthro
     emit("content_block_start", {
       index: 0,
       content_block: useTool
-        ? { type: "tool_use", id: "tool_skill", name: answer.tool, input: {} }
+        ? { type: "tool_use", id: `tool_${requests.length}`, name: answer.tool, input: {} }
         : { type: "text", text: "" },
     });
     emit("content_block_delta", {

@@ -144,7 +144,7 @@ export default defineConfig({
         rules: { "t3code/no-rpc-permission-bypass": "off" },
       },
       {
-        files: ["packages/shared/src/HostProcess.ts"],
+        files: ["packages/shared/src/HostProcess.ts", "packages/ozi-pi/src/host.ts"],
         rules: { "t3code/no-global-process-runtime": "off" },
       },
       {
