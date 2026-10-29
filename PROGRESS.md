@@ -4,7 +4,7 @@ Milestone 9 (Pi parity) is built and its E2E passes on `main`: M9 adds 18 scenar
 
 ## Done
 
-- Fork pinned at T3 v0.1.1 (`fe27e8e`); `origin` = github.com/JohanSardar/ozi (public). Work lands as small PRs merged on green CI.
+- Fork pinned at T3 v0.1.1 (`fe27e8e`); `origin` = github.com/JohanSardar/ozi-harness (public, renamed from `ozi` when the GUI moved to its own repo). Work lands as small PRs merged on green CI.
 - Data root `~/ozi` (git): `system.md` verbatim, `protected/`, `skills/`. Pi 1.4.0.
 - SPEC.md, features.yaml, `scripts/features.ts` (check + HTML; reads all `e2e/results*.json`).
 - M1: other providers, mobile and marketing cut. Main = Pi + Opus 5.5 on the user's Claude subscription through `pi-claude-bridge` (Claude Agent SDK; `--provider claude-bridge --model claude-opus-5-5`, thinking high, fast off), no built-in tools, verbatim data-root prompt, Ozi MCP tools only; default worker Codex gpt-6.1-sol xhigh Fast. `ozi` CLI with `--json`. Fake-agent harness plus real-binary checks (real Pi, real bridge, pinned Claude Code against a fake Anthropic endpoint). Fresh installs seed the data root.

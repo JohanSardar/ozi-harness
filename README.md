@@ -5,7 +5,7 @@ Talk to one main agent. It delegates work to Codex, Claude or Pi workers and kee
 The server requires Linux, Node.js 24.13.1+, pnpm, Git and bubblewrap (`bwrap`). Install Pi and Claude Code for main, and Codex for the default worker. Sign in through the provider CLIs. Main uses the bundled pi-claude-bridge and your Claude Code subscription; no `pi install` step is needed.
 
 ```sh
-git clone https://github.com/JohanSardar/ozi.git ozi-src
+git clone https://github.com/JohanSardar/ozi-harness.git ozi-src
 cd ozi-src
 pnpm install
 pnpm vp run --filter ozi build
