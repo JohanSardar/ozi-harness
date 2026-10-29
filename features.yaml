@@ -326,3 +326,33 @@ features:
     milestone: h2
     scenarios: [h2.pi-package]
     status: passing
+
+  - id: harness-repair
+    reqs: [pi-package, mistake-log, repair-trigger, replay, protected, user-override]
+    module: packages/ozi-pi/src/extension-repair.ts + repair.ts + RepairSandbox.ts + RepairProgram.ts + Publisher.ts + cli.ts + e2e/h4.pi.test.ts
+    cli:
+      [
+        ozi-harness mistakes,
+        ozi-harness replays,
+        ozi-harness fixes,
+        ozi-harness undo,
+        ozi-harness wait,
+        ozi-harness sessions,
+        ozi-harness events,
+        ozi-harness blockers,
+      ]
+    milestone: h4
+    scenarios:
+      [
+        h4.repair,
+        h4.protected,
+        h4.symlink,
+        h4.observer,
+        h4.unknown-effect,
+        h4.conflict,
+        h4.recurrence,
+        h4.crash-undo,
+        h4.package,
+        h4.skills,
+      ]
+    status: passing

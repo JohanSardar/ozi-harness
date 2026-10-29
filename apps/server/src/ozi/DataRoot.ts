@@ -4,11 +4,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 
-export const dataRootPermit = Semaphore.makeUnsafe(1);
+export { dataRootPermit } from "@ozi/pi/RepairHost";
 
 class DataRootError extends Schema.TaggedError<DataRootError>()("DataRootError", {
   cause: Schema.Defect(),

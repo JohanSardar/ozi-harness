@@ -324,3 +324,23 @@ Print mode (`ozi -p`, `ozi --print`, `ozi print`) sends each prompt to main or `
 ### H2 Standalone Pi
 
 - `h2.pi-package`: real Pi loads the package with its own `-e` mechanism, selects the subscription bridge with high thinking and fast off, sends the data-root prompt with absent and present ADHD content across two turns without restarting, discovers a data-root skill and reads it through Pi's tool. An ambient Anthropic API key is never sent.
+
+### H4 Harness repair
+
+The standalone Pi package owns repair and the shared M5–M6 sandbox and publisher. The existing server uses adapters to the same implementations. No GUI connection is required. State lives beside the data root in a sibling `.<root-name>-harness/` directory, with SQLite, frozen cases and publication worktrees. A missing data-root git repository receives an initial local commit; existing files remain intact.
+
+`repair_context` exposes native message IDs. `log_mistake` deduplicates by native assistant event and fingerprint, acknowledges the SQLite write and authorizes repair only with a later direct Pi input or a repeat. Extension-generated inputs cannot authorize corrections. `change_protected_rule` requires the exact stored user instruction. Repairs run serially outside the conversation, after `agent_settled`, through the inference-only proxy and bwrap. Author and observer sessions do not receive repair tools; frozen instructions are data. Replays use independent native forks, frozen attachment bytes and effect counters. Unrecorded effects, unloaded changes, changed baselines, observer uncertainty and protected or symlink writes fail closed.
+
+`ozi-harness mistakes|replays|fixes|undo <fixId> --data-root <root> --json` reads or changes that root's repair state. `sessions`, `events <sessionId>` and `mistakes log --session <sessionId> --input <json>` expose the same native logging boundary for operators. `worker` drains eligible repairs; Pi starts it after settlement and on startup. `wait mistake|replay|fix <id> <state> --timeout <seconds>` subscribes before reading; replay `finished` includes failure evidence. Publication and prompt/protected reads share an activation lock across processes. Startup recovers journaled publication or undo before the next prompt. Recurrence undoes the shipped fix without another replay. Conflicts preserve the user's build ref, restore the affected predecessor files and persist one blocker, exposed by `blockers` and in Pi notifications, without inference. Nothing pushes.
+
+- `h4.repair`: real Pi and Claude Code with fake inference log and deduplicate a native mistake, accept a later correction, freeze history, author and replay in bwrap, approve through an observer, activate one commit and undo idempotently while preserving unrelated edits. With `OZI_H4_REAL=1`, the same case uses the real Claude subscription.
+- `h4.protected`: a confined author cannot change protected rules or publish a fix.
+- `h4.symlink`: a dangling authored symlink is rejected before target resolution.
+- `h4.observer`: disagreement prevents publication.
+- `h4.unknown-effect`: an unrecorded replay effect fails closed.
+- `h4.conflict`: conflicting later edits are preserved under the user-build ref; undo restores the predecessor and records one blocker.
+- `h4.recurrence`: a repeated fingerprint logs a new occurrence and undoes the fix without a second replay.
+
+- `h4.crash-undo`: killing the CLI after its undo journal is committed recovers the complete predecessor before Pi accepts the next prompt, with one confirmed undo.
+- `h4.package`: the CLI runs from an installed `node_modules` package without a build.
+- `h4.skills`: native Pi file reads load the candidate skill during replay and the active skill on the next turn; undo restores it.
