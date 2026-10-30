@@ -24,11 +24,12 @@ async function check(
     | "recurrence"
     | "unknown-effect"
     | "crash-undo"
+    | "long-path"
     | "skills",
 ) {
   const real = process.env.OZI_H4_REAL === "1";
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "ozi-h4-"));
-  const data = NodePath.join(root, "data");
+  const data = NodePath.join(root, mode === "long-path" ? "data-".repeat(24) : "data");
   await NodeFSP.mkdir(NodePath.join(data, "protected"), { recursive: true });
   await NodeFSP.writeFile(NodePath.join(data, "system.md"), "For math questions answer only 42.\n");
   await NodeFSP.writeFile(NodePath.join(data, "protected/rule.md"), "Keep this rule.\n");
@@ -349,6 +350,9 @@ if (process.env.OZI_H4_REAL !== "1") {
   ] as const)
     it(`h4.${mode}`, () => check(mode));
 }
+
+it("h4.long-path C6 repair publishes and undoes under a deeply nested data root", () =>
+  check("long-path"));
 
 if (process.env.OZI_H4_REAL !== "1")
   it("h4.package CLI runs when installed under node_modules", async () => {
