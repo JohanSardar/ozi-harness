@@ -12,7 +12,7 @@ const pkg = NodeURL.fileURLToPath(new URL("../packages/ozi-pi", import.meta.url)
 const bin = NodeURL.fileURLToPath(new URL("./node_modules/.bin", import.meta.url));
 const real = process.env.OZI_H3_REAL === "1";
 
-async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fork") {
+async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fork" | "worker") {
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "ozi-h3-"));
   const data = NodePath.join(root, "data");
   const agent = NodePath.join(root, "pi");
@@ -90,6 +90,7 @@ async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fo
         ANTHROPIC_BASE_URL: real ? "https://api.anthropic.com" : fake.url,
         OZI_MCP_URL: mode === "no-mcp" ? "" : tickets.url,
         OZI_INBOX_FORK: mode === "fork" ? "1" : "",
+        OZI_SUBAGENT: mode === "worker" ? "1" : "0",
       },
       stdio: "pipe",
     },
@@ -145,7 +146,12 @@ async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fo
     }
     const first = await turn("Return only h3-result. This is a finished result for review.");
     expect(first, stderr).toContain("h3-result");
-    if (mode === "no-mcp" || mode === "fork") {
+    if (mode === "no-mcp" || mode === "fork" || mode === "worker") {
+      if (mode === "worker") {
+        const system = JSON.stringify(fake.requests[0]?.system);
+        expect(system).not.toContain("Use ticket tools");
+        expect(system).not.toContain("Before reporting a worker");
+      }
       expect(statuses).toEqual([]);
       expect(tickets.calls).toEqual([]);
       expect(
@@ -216,4 +222,5 @@ if (!real) {
   it("h3.gui-dedup GUI injection after the package installs once", () => check("gui-last"));
   it("h3.no-mcp plain Pi without the GUI connection skips the check", () => check("no-mcp"));
   it("h3.fork inbox forks never install the check", () => check("fork"));
+  it("h3.worker delegated workers have no inbox prompt or hook", () => check("worker"));
 }

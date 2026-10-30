@@ -140,9 +140,9 @@ The package selects `claude-bridge/claude-opus-5-5`, high, fast off, through pin
 
 ### Packaged Pi inbox (H3)
 
-`@ozi/pi` ships P3's standalone Pi inbox extension. With `OZI_MCP_URL` and the four ticket tools connected through Pi's MCP configuration, a settled, non-aborted turn snapshots native history and starts an asynchronous `--fork` check with the same model and thinking level. Only `ticket_create`, `ticket_update`, `ticket_close` and `ticket_list` are available to it. The source conversation remains untouched and can accept another turn. The check lists open tickets, files anything requiring an answer or acknowledgement, closes acknowledged tickets and skips small talk. Pi status events report one quiet inbox check with the filed count or failure; checks have a two-minute deadline and clean up their temporary fork.
+`@ozi/pi` ships P3's standalone Pi inbox extension. With `OZI_MCP_URL` and the four ticket tools connected through Pi's MCP configuration, a settled, non-aborted top-level turn snapshots native history and starts an asynchronous `--fork` check with the same model and thinking level. Only `ticket_create`, `ticket_update`, `ticket_close` and `ticket_list` are available to it. The source conversation remains untouched and can accept another turn. The check lists open tickets, files anything requiring an answer or acknowledgement, closes acknowledged tickets and skips small talk. Pi status events report one quiet inbox check with the filed count or failure; checks have a two-minute deadline and clean up their temporary fork.
 
-The extension's shared event-bus guard prevents double installation when the GUI also injects P3. `OZI_INBOX_FORK=1` suppresses recursive checks and preserves the fork's model and thinking selection. Without the GUI MCP connection the extension does nothing.
+The extension's shared event-bus guard prevents double installation when the GUI also injects P3. `OZI_INBOX_FORK=1` suppresses recursive checks and preserves the fork's model and thinking selection. The GUI derives `OZI_SUBAGENT=1` from the thread's subagent parent relationship on every provider. Subagents get neither the inbox extension nor Ozi main's inbox/delegation prompting. Ticket tools remain registered; workers use them only when explicitly instructed in their task. Main explicitly assigns ticket filing or files from the worker result itself. Completion checks are unchanged. Without the GUI MCP connection the extension does nothing.
 
 ## Desktop identity
 
@@ -337,6 +337,7 @@ Print mode (`ozi -p`, `ozi --print`, `ozi print`) sends each prompt to main or `
 - `h3.gui-dedup`: GUI injection before or after the package produces one check per turn and one ticket, using the existing shared event-bus guard.
 - `h3.no-mcp`: plain Pi without a GUI MCP connection continues normally without an inbox check.
 - `h3.fork`: an inbox fork never installs another check.
+- `h3.worker`: a delegated worker with GUI MCP connected gets no inbox prompting or check and calls no ticket tools unless its task explicitly asks.
 
 ### H4 Harness repair
 
