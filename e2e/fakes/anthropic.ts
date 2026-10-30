@@ -13,7 +13,9 @@ export type AnthropicReply =
   | { text: string }
   | { tool: string; arguments: Record<string, unknown> };
 
-export async function startAnthropic(reply?: (input: AnthropicRequest) => AnthropicReply) {
+export async function startAnthropic(
+  reply?: (input: AnthropicRequest) => AnthropicReply | Promise<AnthropicReply>,
+) {
   const requests: AnthropicRequest[] = [];
   const headers: NodeHttp.IncomingHttpHeaders[] = [];
   const server = NodeHttp.createServer(async (request, response) => {
@@ -34,7 +36,7 @@ export async function startAnthropic(reply?: (input: AnthropicRequest) => Anthro
     headers.push(request.headers);
     const tool = input.tools?.find((entry) => entry.name.endsWith("__read_skill"));
     const answer =
-      reply?.(input) ??
+      (await reply?.(input)) ??
       (tool && !JSON.stringify(input.messages).includes('"tool_result"')
         ? { tool: tool.name, arguments: { name: "demo" } }
         : { text: "bridge-ok" });

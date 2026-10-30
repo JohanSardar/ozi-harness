@@ -378,3 +378,17 @@ A pass creates or updates Review through the GUI's `ticket_*` tools with verifie
 - `h5.gui`: with `OZI_H5_GUI_ROOT` pointing to an I2-capable GUI checkout, real subscription Pi changes files, main receives its review request through the composer, and the inbox shows a verified Review linked to main. State is temporary, both dev servers stop, and a screenshot is retained.
 
 - `h5.inbox-worker`: an inbox fork inheriting an unchecked worker report cannot bypass the completion gate and file Review.
+
+### H6 Automatic main completion
+
+The Pi package automatically checks each successful settled main response, including text-only replies, through H5's isolated native checker and verdict policy. Main records have `workerId: null` and the native `reportItemId`; explicit worker checks retain their IDs and Review gate. Interactive main stays available during checker inference. A new request, session switch, shutdown or aborted run supersedes pending work; late results never continue it. Passing checks stay silent and leave native source history unchanged. Inbox and checker forks never check themselves.
+
+Continue follows up on the same main session with the missing obligations and instructions to use `delegate_task`, coordinate and report back. The original user request scopes the consecutive-round count. Three rounds without independently verified file progress stop continuation; needs-user and checker failures surface attention without automatically resuming main. Check records and waits use the existing `ozi-harness checks` and `wait check` CLI.
+
+- `h6.main-checked`: a text-only main claim is checked automatically; continue makes main delegate the gap and a later check passes.
+- `h6.fork-intact`: a passing check leaves the source session unchanged and usable for another request.
+- `h6.no-recursion`: inbox forks never start completion checks; checker forks have no tools or Ozi extensions.
+- `h6.blocked`: three rounds without verified progress stop main's continuation.
+- `h6.malformed`: malformed checker output fails closed without continuing main.
+- `h6.needs-user`: a human need surfaces attention without continuing main.
+- `h6.superseded`: a replacement request starts while a checker is pending and supersedes its old continuation.

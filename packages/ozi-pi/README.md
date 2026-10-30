@@ -67,3 +67,5 @@ OZI_H5_REAL=1 vp test run --root e2e --config h2.config.ts h5.pi.test.ts
 OZI_H5_GUI_ROOT=/absolute/gui-checkout vp test run --root e2e --config h2.config.ts h5.gui.test.ts
 node scripts/features.ts check h5
 ```
+
+Successful settled main replies, including text-only replies, are also checked automatically. Main records use `workerId: null` and their native `reportItemId`. Passing checks are silent; `continue` follows up on the same session and tells main to delegate the gaps. Three rounds without verified file progress stop continuation. Human needs and checker failures surface attention without resuming main. Interactive requests remain available during checking and supersede stale results. Inbox and checker forks never check themselves; passing forks leave main's native history unchanged.

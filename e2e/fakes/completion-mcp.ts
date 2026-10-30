@@ -29,6 +29,7 @@ export async function startCompletionMcp(worker: () => unknown) {
         tools: [
           "ozi_thread_read",
           "ozi_thread_send",
+          "delegate_task",
           "ticket_create",
           "ticket_update",
           "ticket_list",
