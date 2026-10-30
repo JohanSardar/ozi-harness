@@ -400,9 +400,12 @@ Continue follows up on the same main session with the missing obligations and in
 
 `completion_check.workerId` accepts the task/node ID or child thread ID returned by `delegate_task`. GUI `task_status` resolves task IDs to child threads before history reads, continuation sends and check lookup. Successful resolution stores the child thread ID, so switching identifiers preserves duplicate receipts and unsuccessful rounds. A task without a child thread fails closed.
 
+GUI input provenance persists an `ozi-request` native entry for real requests, including schedules. Delegated completion and other runtime notifications keep the existing request. Both automatic and explicit checks use that stable anchor across native user-shaped notifications and restarts. Plain Pi retains native user-message boundaries. Superseded checks never become the settled round or progress baseline; verified file changes reset the counter, and three unsuccessful rounds block even when the checker fails.
+
 - `h7.task-id`: a delegated task ID reads and verifies its child and files Review.
 - `h7.task-duplicate`: repeating a checked task by child thread ID reuses the receipt without another check or ticket.
 - `h7.task-blocked`: alternating task and child thread IDs shares three unsuccessful rounds, sends missing work only to the child, then files Read.
 - `h7.task-unbound`: a task without a child fails without checker inference or Review.
+- `h7.request-identity`: with `OZI_C6_GUI_ROOT`, the real GUI delegates a staged worker; notifications preserve one request, a file change resets the count, and unchanged rounds reach Blocked. Only inference is faked.
 
 - `h7.gui`: with `OZI_H7_GUI_ROOT`, real subscription main delegates through the GUI, checks using the returned task ID and files a verified Review; the inbox screenshot is retained.
