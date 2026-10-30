@@ -357,6 +357,7 @@ The standalone Pi package owns repair and the shared M5–M6 sandbox and publish
 - `h4.crash-undo`: killing the CLI after its undo journal is committed recovers the complete predecessor before Pi accepts the next prompt, with one confirmed undo.
 - `h4.package`: the CLI runs from an installed `node_modules` package without a build.
 - `h4.skills`: native Pi file reads load the candidate skill during replay and the active skill on the next turn; undo restores it.
+- `h4.long-path`: repair publishes and undoes with a deeply nested data root; the private inference socket uses a scoped short temporary path independent of that root.
 
 ### H5 Harness completion
 

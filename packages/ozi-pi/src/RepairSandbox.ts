@@ -84,7 +84,11 @@ const make = Effect.gen(function* () {
       yield* fs.writeFileString(path.join(launcher, "extension.mjs"), extensionProgram);
       const proxy = path.join(launcher, "inference.mjs");
       yield* fs.writeFileString(proxy, inferenceProgram);
-      const socket = path.join(input.directory, "inference.sock");
+      const socketDirectory = yield* fs.makeTempDirectoryScoped({
+        directory: "/tmp",
+        prefix: "ozi-inference-",
+      });
+      const socket = path.join(socketDirectory, "inference.sock");
       const failure = path.join(input.directory, "inference.failure");
       const bridged = input.driver === "pi" && input.model.startsWith("claude-bridge/");
       const process = yield* spawner.spawn(

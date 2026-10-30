@@ -363,6 +363,7 @@ features:
         h4.crash-undo,
         h4.package,
         h4.skills,
+        h4.long-path,
       ]
     status: passing
 
