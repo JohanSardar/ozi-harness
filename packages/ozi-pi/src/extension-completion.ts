@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Type } from "typebox";
 import { checkClaim } from "./Completion.ts";
+import { completionRequest } from "./CompletionRequest.ts";
 import { settle, type Verdict } from "./CompletionPolicy.ts";
 import * as Evidence from "./Evidence.ts";
 import { statePath, textOf } from "./repair.ts";
@@ -57,7 +58,11 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
   const permits = new Map<string, string>();
   let pending: AbortController | undefined;
   const cancel = () => pending?.abort();
-  pi.on("input", cancel);
+  pi.on("input", (event) => {
+    cancel();
+    if (!process.env.OZI_PI_INPUT_CONTEXT_FILE && event.source !== "extension")
+      pi.appendEntry("ozi-request", { id: NodeCrypto.randomUUID(), text: event.text });
+  });
   pi.on("before_agent_start", cancel);
   pi.on("session_shutdown", cancel);
   pi.on("session_before_switch", cancel);
@@ -67,9 +72,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
       return;
     }
     const branch = ctx.sessionManager.getBranch();
-    const request = branch.findLast(
-      (entry) => entry.type === "message" && entry.message.role === "user",
-    );
+    const request = completionRequest(branch);
     const report = branch.findLast(
       (entry) => entry.type === "message" && entry.message.role === "assistant",
     );
@@ -84,7 +87,12 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
     const db = openStore(statePath(dataRoot()));
     const session = ctx.sessionManager.getSessionId();
     const previous = checks(db).findLast(
-      (row) => row.session === session && row.request === request.id && row.workerId === null,
+      (row) =>
+        row.session === session &&
+        row.request === request.id &&
+        row.workerId === null &&
+        row.state !== "superseded" &&
+        row.state !== "checking",
     );
     if (previous?.reportItemId === report.id) {
       db.close();
@@ -124,7 +132,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
             null,
             {
               claimant: "main",
-              request: textOf(request),
+              request: request.text,
               claim: textOf(report),
             },
             controller.signal,
@@ -251,9 +259,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
       const db = openStore(statePath(dataRoot()));
       const session = ctx.sessionManager.getSessionId();
       const branch = ctx.sessionManager.getBranch();
-      const request = branch.findLast(
-        (entry) => entry.type === "message" && entry.message.role === "user",
-      )?.id;
+      const request = completionRequest(branch)?.id;
       if (!request) {
         db.close();
         throw new Error("missing-request");
@@ -366,7 +372,9 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
             (row) =>
               row.session === session &&
               row.request === request &&
-              row.workerId === record.workerId,
+              row.workerId === record.workerId &&
+              row.state !== "superseded" &&
+              row.state !== "checking",
           );
           record.unsuccessfulRounds = before?.unsuccessfulRounds ?? 0;
           save();
@@ -398,9 +406,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
               worker: source,
               files,
               proposedReview: args.ticket,
-              request: branch
-                .filter((entry) => entry.type === "message" && entry.message.role === "user")
-                .map(textOf),
+              request: completionRequest(branch)?.text,
             },
             signal,
           );
@@ -412,9 +418,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
                 Effect.provide(NodeServices.layer),
               ),
             ));
-          const currentRequest = ctx.sessionManager
-            .getBranch()
-            .findLast((entry) => entry.type === "message" && entry.message.role === "user")?.id;
+          const currentRequest = completionRequest(ctx.sessionManager.getBranch())?.id;
           if (!unchanged || currentRequest !== request || signal?.aborted) {
             record.state = "superseded";
             record.error = "Evidence or request changed during verification.";
@@ -441,7 +445,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
           record.evidence.some((entry) => !previousEvidence.includes(entry)),
         );
         Object.assign(record, settle(record.verdict, record.unsuccessfulRounds, progress));
-        if (record.error) record.state = "failed";
+        if (record.error && record.state !== "blocked") record.state = "failed";
         const verdict = record.verdict;
         if (verdict?.verdict === "continue" && record.state !== "blocked") {
           record.action = await call(["ozi_thread_send", "t3_thread_send"], {
