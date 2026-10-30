@@ -376,6 +376,7 @@ features:
     scenarios:
       [
         h5.review,
+        h5.worker-scope,
         h5.continue,
         h5.blocked,
         h5.needs-user,
