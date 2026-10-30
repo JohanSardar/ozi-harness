@@ -28,7 +28,8 @@ export type Check = {
   id: string;
   session: string;
   request: string;
-  workerId: string;
+  workerId: string | null;
+  reportItemId?: string;
   at: string;
   state: ReturnType<typeof settle>["state"] | "failed";
   unsuccessfulRounds: number;
@@ -46,8 +47,146 @@ export function checks(db: ReturnType<typeof openStore>): Check[] {
     .map((row) => JSON.parse(String(row.record)));
 }
 
+function saveCheck(db: ReturnType<typeof openStore>, record: Check) {
+  db.prepare(
+    "INSERT INTO ozi_checks VALUES (?,?) ON CONFLICT(id) DO UPDATE SET record=excluded.record",
+  ).run(record.id, JSON.stringify(record));
+}
+
 export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
   const permits = new Map<string, string>();
+  let pending: AbortController | undefined;
+  const cancel = () => pending?.abort();
+  pi.on("input", cancel);
+  pi.on("before_agent_start", cancel);
+  pi.on("session_shutdown", cancel);
+  pi.on("session_before_switch", cancel);
+  pi.on("agent_settled", (event, ctx) => {
+    if (process.env.OZI_INBOX_FORK === "1" || event.aborted) {
+      cancel();
+      return;
+    }
+    const branch = ctx.sessionManager.getBranch();
+    const request = branch.findLast(
+      (entry) => entry.type === "message" && entry.message.role === "user",
+    );
+    const report = branch.findLast(
+      (entry) => entry.type === "message" && entry.message.role === "assistant",
+    );
+    if (
+      !request ||
+      !report ||
+      report.type !== "message" ||
+      report.message.role !== "assistant" ||
+      report.message.stopReason !== "stop"
+    )
+      return;
+    const db = openStore(statePath(dataRoot()));
+    const session = ctx.sessionManager.getSessionId();
+    const previous = checks(db).findLast(
+      (row) => row.session === session && row.request === request.id && row.workerId === null,
+    );
+    if (previous?.reportItemId === report.id) {
+      db.close();
+      return;
+    }
+    cancel();
+    const controller = new AbortController();
+    pending = controller;
+    const record: Check = {
+      id: NodeCrypto.randomUUID(),
+      session,
+      request: request.id,
+      workerId: null,
+      reportItemId: report.id,
+      at: DateTime.formatIso(Effect.runSync(DateTime.now)),
+      state: "checking",
+      unsuccessfulRounds: previous?.unsuccessfulRounds ?? 0,
+      verdict: null,
+      verified: [],
+      evidence: [],
+      error: null,
+      action: null,
+      fingerprint: hash(branch),
+    };
+    saveCheck(db, record);
+    const current = () =>
+      !controller.signal.aborted &&
+      ctx.sessionManager.getSessionId() === session &&
+      hash(ctx.sessionManager.getBranch()) === record.fingerprint;
+    const checking = (async () => {
+      try {
+        try {
+          const result = await checkClaim(
+            ctx,
+            statePath(dataRoot()),
+            record.id,
+            null,
+            {
+              claimant: "main",
+              request: textOf(request),
+              claim: textOf(report),
+            },
+            controller.signal,
+          );
+          record.verdict = result.verdict;
+          record.verified = result.verified;
+          if (result.verdict.verdict === "continue")
+            record.evidence = await Effect.runPromise(
+              Effect.filter(result.verdict.evidence, (item) => Evidence.verify(ctx.cwd, item)).pipe(
+                Effect.provide(NodeServices.layer),
+              ),
+            );
+        } catch {
+          record.error =
+            "Main completion could not be verified. Inspect the checker and native history.";
+        }
+        const progress = Boolean(
+          previous && record.evidence.some((item) => !previous.evidence.includes(item)),
+        );
+        Object.assign(
+          record,
+          settle(record.verdict, record.unsuccessfulRounds, progress, !current()),
+        );
+        if (record.state === "superseded") return;
+        if (record.error && record.state !== "blocked") record.state = "failed";
+        if (record.state === "continued" && record.verdict?.verdict === "continue") {
+          const message = `Completion check found missing work: ${record.verdict.missing}\nVerified evidence: ${record.evidence.join(", ")}\nUse delegate_task to delegate the missing work. Coordinate the result and report back; do not hand work you can delegate to the user.`;
+          const action = {
+            customType: "ozi-completion-continue",
+            content: message,
+            display: false,
+          };
+          record.action = action;
+          pi.sendMessage(action, { triggerTurn: true, deliverAs: "followUp" });
+        } else if (record.state !== "checked") {
+          const message =
+            record.state === "blocked"
+              ? "Completion blocked: three rounds without verified progress."
+              : record.verdict?.verdict === "needs_user"
+                ? record.verdict.reason
+                : record.error!;
+          const action = {
+            customType: "ozi-completion-attention",
+            content: message,
+            display: true,
+          };
+          record.action = action;
+          pi.sendMessage(action);
+          ctx.ui.notify(message, "warning");
+        }
+      } finally {
+        saveCheck(db, record);
+        db.close();
+        if (pending === controller) pending = undefined;
+      }
+    })();
+    if (ctx.mode === "rpc" || ctx.mode === "tui") {
+      void checking.catch(() => ctx.ui.notify("Main completion check storage failed.", "error"));
+      return;
+    }
+    return checking;
+  });
   pi.on("tool_call", (event, ctx) => {
     if (
       process.env.OZI_INBOX_FORK === "1" &&
@@ -134,12 +273,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
         action: null,
         fingerprint: "",
       };
-      const save = () =>
-        db
-          .prepare(
-            "INSERT INTO ozi_checks VALUES (?,?) ON CONFLICT(id) DO UPDATE SET record=excluded.record",
-          )
-          .run(record.id, JSON.stringify(record));
+      const save = () => saveCheck(db, record);
       const call = async (names: string[], input: Record<string, unknown>) => {
         const tool = ctx.tools.find((tool) => names.includes(nameOf(tool.name) ?? ""));
         if (!tool) throw new Error(`missing-gui-tool:${names[0]}`);

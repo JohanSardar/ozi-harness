@@ -46,6 +46,7 @@ features:
     milestone: 1
     scenarios: [m1.fresh-install]
     status: passing
+
   - id: cli
     reqs: [info-tools, for-everybody]
     module: apps/server/src/cli/client.ts + apps/server/src/cli/run.ts + e2e
@@ -386,5 +387,22 @@ features:
         h5.duplicate,
         h5.inbox-worker,
         h5.gui,
+      ]
+    status: passing
+
+  - id: harness-main-completion
+    reqs: [pi-package, end-of-turn-check, blocked]
+    module: packages/ozi-pi/src/extension-completion.ts + Completion.ts + CompletionPolicy.ts + e2e/h6.pi.test.ts
+    cli: [ozi-harness checks, ozi-harness wait]
+    milestone: h6
+    scenarios:
+      [
+        h6.main-checked,
+        h6.fork-intact,
+        h6.no-recursion,
+        h6.blocked,
+        h6.malformed,
+        h6.needs-user,
+        h6.superseded,
       ]
     status: passing

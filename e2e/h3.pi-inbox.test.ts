@@ -41,6 +41,13 @@ async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fo
       break;
   }
   const fake = await startAnthropic((request) => {
+    if (request.system.some((part) => part.text.includes("OZI COMPLETION CHECK")))
+      return {
+        text: JSON.stringify({
+          verdict: { verdict: "done", useful: false },
+          verified: ["The requested text was returned."],
+        }),
+      };
     const messages = JSON.stringify(request.messages);
     const at = messages.lastIndexOf("Check the completed turn's inbox only");
     if (at === -1) return { text: messages.includes("h3-smalltalk") ? "Hello!" : "h3-result" };
@@ -141,7 +148,11 @@ async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fo
     if (mode === "no-mcp" || mode === "fork") {
       expect(statuses).toEqual([]);
       expect(tickets.calls).toEqual([]);
-      expect(fake.requests).toHaveLength(1);
+      expect(
+        fake.requests.filter(
+          (request) => !request.system.some((part) => part.text.includes("OZI COMPLETION CHECK")),
+        ),
+      ).toHaveLength(1);
       return;
     }
     expect(tickets.tickets).toHaveLength(1);
@@ -165,10 +176,18 @@ async function check(mode: "package" | "gui-first" | "gui-last" | "no-mcp" | "fo
         "ticket_list",
         "ticket_close",
       ]);
-      expect(fake.requests).toHaveLength(11);
+      expect(
+        fake.requests.filter(
+          (request) => !request.system.some((part) => part.text.includes("OZI COMPLETION CHECK")),
+        ),
+      ).toHaveLength(11);
       for (const request of fake.requests) {
         expect(request.model).toBe("claude-sonnet-5-5");
-        expect(request.output_config?.effort).toBe("medium");
+        expect(request.output_config?.effort).toBe(
+          request.system.some((part) => part.text.includes("OZI COMPLETION CHECK"))
+            ? "low"
+            : "medium",
+        );
         if (!JSON.stringify(request.messages).includes("Check the completed turn's inbox only"))
           continue;
         expect(request.tools).toHaveLength(4);

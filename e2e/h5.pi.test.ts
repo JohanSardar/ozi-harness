@@ -97,6 +97,13 @@ async function run(
   const fake = await startAnthropic((request) => {
     const system = request.system.map((part) => part.text).join("\n");
     if (system.includes("OZI COMPLETION CHECK")) {
+      if (JSON.stringify(request.messages.at(-1)).includes('"claimant":"main"'))
+        return {
+          text: JSON.stringify({
+            verdict: { verdict: "done", useful: false },
+            verified: ["Main coordinated the worker check."],
+          }),
+        };
       checkerCount++;
       expect(request.tools).toEqual([]);
       expect(request.output_config?.effort).toBe("low");
@@ -219,7 +226,9 @@ async function run(
           break;
       } else if (event.type === "agent_settled") break;
     }
-    const records = await cli("checks");
+    const records = (await cli("checks")).filter(
+      (row: { workerId: string | null }) => row.workerId !== null,
+    );
     if (mode === "inbox-worker") {
       expect(inboxStep).toBe(3);
       expect(records).toEqual([]);
