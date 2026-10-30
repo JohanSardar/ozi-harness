@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default async function inbox(pi: ExtensionAPI) {
-  if (process.env.OZI_INBOX_FORK === "1") return;
+  if (process.env.OZI_INBOX_FORK === "1" || process.env.OZI_SUBAGENT === "1") return;
   let installed = false;
   pi.events.emit("ozi:inbox:installed", () => {
     installed = true;

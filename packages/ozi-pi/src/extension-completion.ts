@@ -233,9 +233,10 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
     };
   });
   pi.on("before_agent_start", (event) => {
+    if (process.env.OZI_SUBAGENT === "1") return;
     event.systemPromptOptions.appendSystemPrompt = [
       event.systemPromptOptions.appendSystemPrompt,
-      "Before reporting a worker's finished job, use completion_check with its workerId, evidence files and a proposed Review ticket. First inspect diffs, real test output and exit status, files and PR state using the GUI's tools. completion_check verifies the claim and files through ticket_create/ticket_update, sends the worker back for missing work, or files a Decide/Do/Read blocker or failure. A worker claim alone never passes. Use ticket_* directly for questions, human actions and failures. Skip tickets for small talk.",
+      "Before reporting a worker's finished job, use completion_check with its workerId, evidence files and a proposed Review ticket. First inspect diffs, real test output and exit status, files and PR state using the GUI's tools. completion_check verifies the claim and files through ticket_create/ticket_update, sends the worker back for missing work, or files a Decide/Do/Read blocker or failure. A worker claim alone never passes. When a worker should file a ticket itself, say so explicitly in its task; otherwise file tickets from its result. Workers have no inbox prompting or turn-end inbox hook. Use ticket_* directly for questions, human actions and failures. Skip tickets for small talk.",
     ]
       .filter(Boolean)
       .join("\n");

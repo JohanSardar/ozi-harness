@@ -36,6 +36,7 @@ export default function ozi(pi: ExtensionAPI) {
   });
   pi.on("resources_discover", () => ({ skillPaths: [NodePath.join(dataRoot(), "skills")] }));
   pi.on("before_agent_start", async (event, ctx) => {
+    if (process.env.OZI_SUBAGENT === "1") return;
     try {
       if (ctx.model?.provider !== "claude-bridge")
         throw new Error("Ozi requires the Claude subscription bridge");
