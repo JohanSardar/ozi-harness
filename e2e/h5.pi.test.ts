@@ -108,7 +108,7 @@ async function run(
   const fake = await startAnthropic((request) => {
     const system = request.system.map((part) => part.text).join("\n");
     if (system.includes("OZI COMPLETION CHECK")) {
-      if (JSON.stringify(request.messages.at(-1)).includes('"claimant":"main"'))
+      if (system.includes("Check main's own reply"))
         return {
           text: JSON.stringify({
             verdict: { verdict: "done", useful: false },
@@ -116,6 +116,8 @@ async function run(
           }),
         };
       checkerCount++;
+      expect(system).toContain("Check only the supplied worker's completed job");
+      expect(system).not.toContain("Check main's own reply");
       expect(request.tools).toEqual([]);
       expect(request.output_config?.effort).toBe("low");
       expect(system).not.toContain("Before reporting a worker's finished job");
@@ -322,6 +324,8 @@ async function run(
 }
 
 it("h5.review verifies evidence before filing a Review through GUI MCP", () => run("done"));
+it("h5.worker-scope C6 checks the worker without requiring main's later coordination", () =>
+  run("done"));
 if (process.env.OZI_H5_REAL !== "1") {
   for (const mode of [
     "continue",

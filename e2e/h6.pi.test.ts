@@ -35,6 +35,8 @@ async function run(
     const messages = JSON.stringify(request.messages);
     if (system.includes("OZI COMPLETION CHECK")) {
       checkerCount++;
+      expect(system).toContain("Check main's own reply");
+      expect(system).not.toContain("Check only the supplied worker's completed job");
       expect(request.tools).toEqual([]);
       expect(request.output_config?.effort).toBe("low");
       expect(messages).toContain("h6-claim");
