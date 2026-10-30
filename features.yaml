@@ -406,3 +406,11 @@ features:
         h6.superseded,
       ]
     status: passing
+
+  - id: harness-completion-identity
+    reqs: [pi-package, end-of-turn-check, blocked]
+    module: packages/ozi-pi/src/extension-completion.ts + e2e/h5.pi.test.ts + e2e/h5.gui.test.ts
+    cli: [ozi-harness checks, ozi-harness wait]
+    milestone: h7
+    scenarios: [h7.task-id, h7.task-duplicate, h7.task-blocked, h7.task-unbound, h7.gui]
+    status: passing

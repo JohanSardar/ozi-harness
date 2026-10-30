@@ -35,8 +35,16 @@ async function run(
     | "file-error"
     | "file-stale"
     | "duplicate"
-    | "inbox-worker",
+    | "inbox-worker"
+    | "task-id"
+    | "task-duplicate"
+    | "task-blocked"
+    | "task-unbound",
 ) {
+  const taskMode = mode.startsWith("task-");
+  const blocked = mode === "blocked" || mode === "task-blocked";
+  const duplicate = mode === "duplicate" || mode === "task-duplicate";
+  const passed = mode === "done" || mode === "update" || mode === "task-id" || duplicate;
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "ozi-h5-"));
   const data = NodePath.join(root, "data");
   const real = process.env.OZI_H5_REAL === "1";
@@ -67,26 +75,29 @@ async function run(
   const diff = await exec("git", ["diff", "--", "answer.txt"], { cwd: root });
   await NodeFSP.writeFile(NodePath.join(root, "diff.txt"), diff.stdout);
   let revision = 1;
-  const mcp = await startCompletionMcp(() => ({
-    thread: {
-      threadId: "worker-1",
-      activeRunId: null,
-      latestRunId: "run-1",
-      pendingRequestCount: 0,
-      updatedAt: revision,
-    },
-    recentRuns: [{ runId: "run-1", status: "completed" }],
-    items: [
-      {
-        itemId: "report-1",
-        type: "assistant_message",
-        text: "Done: answer.txt says 42 exactly.",
-        textTruncated: false,
+  const mcp = await startCompletionMcp(
+    () => ({
+      thread: {
+        threadId: "worker-1",
+        activeRunId: null,
+        latestRunId: "run-1",
+        pendingRequestCount: 0,
+        updatedAt: revision,
       },
-    ],
-    hasMore: false,
-    nextPosition: null,
-  }));
+      recentRuns: [{ runId: "run-1", status: "completed" }],
+      items: [
+        {
+          itemId: "report-1",
+          type: "assistant_message",
+          text: "Done: answer.txt says 42 exactly.",
+          textTruncated: false,
+        },
+      ],
+      hasMore: false,
+      nextPosition: null,
+    }),
+    taskMode ? { "task-1": mode === "task-unbound" ? null : "worker-1" } : undefined,
+  );
   await NodeFSP.writeFile(
     NodePath.join(root, "pi/mcp.json"),
     JSON.stringify({ mcpServers: { ozi: { url: mcp.url, exposure: "direct" } } }),
@@ -113,7 +124,7 @@ async function run(
         NodeFS.writeFileSync(NodePath.join(root, "answer.txt"), "Changed after check.\n");
       if (mode === "malformed") return { text: "Looks done to me." };
       const verdict =
-        mode === "continue" || mode === "blocked"
+        mode === "continue" || blocked
           ? {
               verdict: "continue",
               missing: "The requested test has not run; run it and include its output.",
@@ -163,14 +174,14 @@ async function run(
       return call("ticket_update", { id: "existing", changes: { summary: "unchecked promotion" } });
     if (stage === 3)
       return call("completion_check", {
-        workerId: "worker-1",
+        workerId: taskMode ? "task-1" : "worker-1",
         files: mode === "file-error" ? ["missing.txt"] : ["answer.txt", "diff.txt"],
         ticket: content,
         ...(mode === "update" ? { ticketId: "existing" } : {}),
       });
-    if ((mode === "blocked" && stage < 6) || (mode === "duplicate" && stage === 4))
+    if ((blocked && stage < 6) || (duplicate && stage === 4))
       return call("completion_check", {
-        workerId: "worker-1",
+        workerId: taskMode && stage === 5 ? "task-1" : "worker-1",
         files: ["answer.txt", "diff.txt"],
         ticket: content,
       });
@@ -211,7 +222,7 @@ async function run(
   try {
     const message = real
       ? `Check worker-1's completed job: write the literal text "42 exactly" followed by a newline to answer.txt. No tests or PR were requested. Read answer.txt and diff.txt; use completion_check with workerId worker-1, files ["answer.txt","diff.txt"], and a Review ticket. Do not claim tests or PR checks. File the ticket through completion_check, then stop.`
-      : mode === "continue" || mode === "blocked"
+      : mode === "continue" || blocked
         ? "Check worker-1's required file change and test run. A real passing test output is required. Use completion_check."
         : mode === "needs_user"
           ? "Check worker-1's result; release needs my approval. Use completion_check."
@@ -238,18 +249,17 @@ async function run(
     }
     expect(records.length, stderr + output.slice(-1200)).toBeGreaterThan(0);
     const last = records.at(-1);
-    const expected =
-      mode === "done" || mode === "update" || mode === "duplicate"
-        ? "checked"
-        : mode === "continue"
-          ? "continued"
-          : mode === "blocked"
-            ? "blocked"
-            : mode === "needs_user"
-              ? "needs_user"
-              : mode === "stale" || mode === "file-stale"
-                ? "superseded"
-                : "failed";
+    const expected = passed
+      ? "checked"
+      : mode === "continue"
+        ? "continued"
+        : blocked
+          ? "blocked"
+          : mode === "needs_user"
+            ? "needs_user"
+            : mode === "stale" || mode === "file-stale"
+              ? "superseded"
+              : "failed";
     expect(last.state, JSON.stringify(records) + stderr + output.slice(-1200)).toBe(expected);
     expect(await cli("wait", "check", last.id, expected, "--timeout", "5")).toEqual(last);
     expect(
@@ -264,18 +274,18 @@ async function run(
           JSON.stringify(call.input).includes("unchecked promotion"),
       ),
     ).toBe(false);
-    if (mode === "done" || mode === "update" || mode === "duplicate") {
+    if (passed) {
       expect(mcp.tickets).toHaveLength(1);
       expect(mcp.tickets[0]!.group).toBe("Review");
       expect(mcp.tickets[0]!.markdown).toContain("Verified by completion check");
       expect(last.evidence).toHaveLength(2);
       expect(last.verified[0]).toContain("42 exactly");
-    } else if (mode === "continue" || mode === "blocked") {
+    } else if (mode === "continue" || blocked) {
       expect(mcp.calls.filter((call) => call.name === "ozi_thread_send")).toHaveLength(
-        mode === "blocked" ? 2 : 1,
+        blocked ? 2 : 1,
       );
       expect(mcp.tickets.filter((ticket) => ticket.group === "Review")).toHaveLength(0);
-      if (mode === "blocked") {
+      if (blocked) {
         expect(last.unsuccessfulRounds).toBe(3);
         expect(mcp.tickets[0]!.group).toBe("Read");
       }
@@ -283,7 +293,24 @@ async function run(
     else {
       expect(mcp.tickets[0]!.group).toBe(mode === "needs_user" ? "Decide" : "Read");
     }
-    if (!real && mode !== "file-error") expect(checkerCount).toBe(mode === "blocked" ? 3 : 1);
+    if (taskMode && mode !== "task-unbound") {
+      expect(records.every((record: { workerId: string }) => record.workerId === "worker-1")).toBe(
+        true,
+      );
+      expect(
+        mcp.calls
+          .filter((call) => call.name === "ozi_thread_read")
+          .every((call) => call.input.threadId === "worker-1"),
+      ).toBe(true);
+      expect(
+        mcp.calls
+          .filter((call) => call.name === "ozi_thread_send")
+          .every((call) => call.input.threadId === "worker-1"),
+      ).toBe(true);
+      if (duplicate) expect(records).toHaveLength(1);
+    }
+    if (!real && mode !== "file-error")
+      expect(checkerCount).toBe(mode === "task-unbound" ? 0 : blocked ? 3 : 1);
   } finally {
     pi.kill("SIGTERM");
     await new Promise<void>((resolve) => pi.once("close", () => resolve()));
@@ -311,3 +338,6 @@ if (process.env.OZI_H5_REAL !== "1") {
     it(`h5.${mode.replaceAll("_", "-")} fails closed or routes the checked outcome`, () =>
       run(mode));
 }
+
+for (const mode of ["task-id", "task-duplicate", "task-blocked", "task-unbound"] as const)
+  it(`h7.${mode} resolves delegated IDs consistently`, () => run(mode));

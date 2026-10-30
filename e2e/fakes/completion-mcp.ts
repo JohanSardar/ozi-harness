@@ -1,6 +1,9 @@
 import * as NodeHttp from "node:http";
 
-export async function startCompletionMcp(worker: () => unknown) {
+export async function startCompletionMcp(
+  worker: () => unknown,
+  tasks?: Record<string, string | null>,
+) {
   const calls: { name: string; input: Record<string, unknown> }[] = [];
   const tickets: Record<string, unknown>[] = [];
   const server = NodeHttp.createServer(async (request, response) => {
@@ -27,6 +30,7 @@ export async function startCompletionMcp(worker: () => unknown) {
     if (message.method === "tools/list")
       result = {
         tools: [
+          ...(tasks ? ["task_status"] : []),
           "ozi_thread_read",
           "ozi_thread_send",
           "delegate_task",
@@ -44,8 +48,16 @@ export async function startCompletionMcp(worker: () => unknown) {
       const { name, arguments: input } = message.params;
       calls.push({ name, input });
       let value: unknown;
-      if (name === "ozi_thread_read") value = worker();
-      else if (name === "ticket_list") value = { tickets };
+      if (name === "task_status")
+        value =
+          input.taskId in tasks!
+            ? { taskId: input.taskId, childThreadId: tasks![input.taskId] }
+            : { error: { code: "task_not_found" } };
+      else if (name === "ozi_thread_read") {
+        value = worker();
+        if ((value as { thread: { threadId: string } }).thread.threadId !== input.threadId)
+          value = { error: { code: "thread_not_found" } };
+      } else if (name === "ticket_list") value = { tickets };
       else if (name === "ticket_create") {
         value = { ...input, id: `ticket-${tickets.length + 1}`, status: "open" };
         tickets.push(value as Record<string, unknown>);

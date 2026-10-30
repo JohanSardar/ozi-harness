@@ -16,10 +16,11 @@ async function freePort() {
   return port;
 }
 
-it.skipIf(!process.env.OZI_H5_GUI_ROOT)(
-  "h5.gui real subscription checks a worker before Review in the dev inbox",
+const milestone = process.env.OZI_H7_GUI_ROOT ? "h7" : "h5";
+it.skipIf(!process.env[`OZI_${milestone.toUpperCase()}_GUI_ROOT`])(
+  `${milestone}.gui real subscription checks a worker before Review in the dev inbox`,
   async () => {
-    const gui = NodePath.resolve(process.env.OZI_H5_GUI_ROOT!);
+    const gui = NodePath.resolve(process.env[`OZI_${milestone.toUpperCase()}_GUI_ROOT`]!);
     const directory = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "ozi-h5-gui-"));
     const home = NodePath.join(directory, "home");
     const data = NodePath.join(directory, "data");
@@ -140,15 +141,25 @@ it.skipIf(!process.env.OZI_H5_GUI_ROOT)(
         NodePath.join(gui, "apps/web"),
         /ready in/,
       );
-      await exec(process.execPath, [bin, "project", "add", workspace, "--home", home], { env });
-      const worker = await ozi(
+      const worker =
+        milestone === "h5"
+          ? await ozi(
+              "thread",
+              "start",
+              "--cwd",
+              workspace,
+              'Write the literal text "42 exactly" followed by a newline into answer.txt. Save git diff -- answer.txt into diff.txt. No tests or PR are requested. Do not file a ticket. Report the two file paths when done.',
+              "--wait",
+            )
+          : null;
+      const main = await ozi(
         "thread",
         "start",
+        "--cwd",
         workspace,
-        'Write the literal text "42 exactly" followed by a newline into answer.txt. Save git diff -- answer.txt into diff.txt. No tests or PR are requested. Do not file a ticket. Report the two file paths when done.',
+        "Wait for my instruction.",
         "--wait",
       );
-      const main = await ozi("thread", "start", workspace, "Wait for my instruction.", "--wait");
       const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
       page.setDefaultTimeout(20000);
       await page.addInitScript(() =>
@@ -158,8 +169,8 @@ it.skipIf(!process.env.OZI_H5_GUI_ROOT)(
         ),
       );
       await page.goto((await ozi("pair")).pairingUrl);
-      await page.getByRole("treeitem").first().waitFor();
-      const threads = await ozi("thread", "list", "--project", workspace);
+      await page.locator('[contenteditable="true"]').first().waitFor();
+      const threads = await ozi("thread", "list");
       const link = new URL(
         threads.find((thread: { threadId: string }) => thread.threadId === main.threadId).link,
       );
@@ -167,32 +178,44 @@ it.skipIf(!process.env.OZI_H5_GUI_ROOT)(
       await page.goto(link.href);
       const composer = page.locator('[contenteditable="true"]').first();
       await composer.fill(
-        `Check worker ${worker.threadId}'s completed job: answer.txt must contain the literal line "42 exactly". Read answer.txt and diff.txt. No tests or PR were requested. Use completion_check with workerId ${worker.threadId}, files ["answer.txt","diff.txt"] and a Review ticket titled "H5 verified worker result". File it through the check and stop.`,
+        milestone === "h7"
+          ? 'Check capabilities, then delegate exactly one Ozi worker on claude-bridge/claude-opus-5-5 in wait mode. Its task: write the literal line "42 exactly" into answer.txt and save git diff -- answer.txt into diff.txt. No tests or PR requested. After the worker finishes, inspect both files and use completion_check with workerId set to the taskId (not childThreadId) returned by delegate_task, files ["answer.txt","diff.txt"], and a Review ticket titled "H7 verified worker result". The check resolves the task ID. Do not file Review directly. Stop after the check succeeds.'
+          : `Check worker ${worker!.threadId}'s completed job: answer.txt must contain the literal line "42 exactly". Read answer.txt and diff.txt. No tests or PR were requested. Use completion_check with workerId ${worker!.threadId}, files ["answer.txt","diff.txt"] and a Review ticket titled "H5 verified worker result". File it through the check and stop.`,
       );
       await composer.press("Enter");
       const inbox = page.getByRole("complementary", { name: "Inbox" });
       await inbox
-        .getByRole("button", { name: /H5 verified worker result/ })
+        .getByRole("button", {
+          name: new RegExp(`${milestone.toUpperCase()} verified worker result`),
+        })
         .waitFor({ timeout: 120000 });
       const result = await ozi(
         "ticket",
         "list",
         "--input",
-        JSON.stringify({ search: "H5 verified worker result" }),
+        JSON.stringify({ search: `${milestone.toUpperCase()} verified worker result` }),
       );
-      const ticket = result.tickets[0];
-      expect(ticket.group, output.slice(-2000)).toBe("Review");
+      const ticket =
+        result.tickets.find((ticket: { group: string }) => ticket.group === "Review") ??
+        result.tickets[0];
+      expect(ticket.group, JSON.stringify(ticket)).toBe("Review");
       expect(ticket.markdown).toContain("Verified by completion check");
       expect(ticket.origin.threadId).toBe(main.threadId);
       if (!(await inbox.getByRole("button", { name: "Open details" }).isVisible()))
-        await inbox.getByRole("button", { name: /H5 verified worker result/ }).click();
+        await inbox
+          .getByRole("button", {
+            name: new RegExp(`${milestone.toUpperCase()} verified worker result`),
+          })
+          .click();
       await inbox.getByRole("button", { name: "Open details" }).click();
       await page
         .getByRole("dialog")
         .getByText(/Verified by completion check/)
         .waitFor();
       await page.screenshot({
-        path: process.env.OZI_H5_SCREENSHOT ?? NodePath.join(NodeOS.tmpdir(), "ozi-h5-review.png"),
+        path:
+          process.env[`OZI_${milestone.toUpperCase()}_SCREENSHOT`] ??
+          NodePath.join(NodeOS.tmpdir(), "ozi-h5-review.png"),
       });
       const checks = JSON.parse(
         (
@@ -203,11 +226,17 @@ it.skipIf(!process.env.OZI_H5_GUI_ROOT)(
           )
         ).stdout,
       );
-      expect(checks.at(-1).state).toBe("checked");
+      const checked = checks.findLast((row: { workerId: string | null }) => row.workerId !== null);
+      expect(checked.state).toBe("checked");
+      const history = await ozi("thread", "show", main.threadId, "--activity");
+      if (milestone === "h7") {
+        expect(JSON.stringify(history)).toContain("task_status");
+        expect(JSON.stringify(history)).not.toContain("thread_not_found");
+      }
       process.stdout.write(
         JSON.stringify({
           ticket: { group: ticket.group, markdown: ticket.markdown },
-          check: { state: checks.at(-1).state, verified: checks.at(-1).verified },
+          check: { state: checked.state, workerId: checked.workerId, verified: checked.verified },
         }) + "\n",
       );
     } finally {

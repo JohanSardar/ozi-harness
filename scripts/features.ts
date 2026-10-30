@@ -9,7 +9,7 @@ interface Feature {
   reqs: string[];
   module: string;
   cli: string[];
-  milestone: number | "h2" | "h3" | "h4" | "h5" | "h6";
+  milestone: number | "h2" | "h3" | "h4" | "h5" | "h6" | "h7";
   scenarios: string[];
   status: "planned" | "building" | "passing";
 }
@@ -24,7 +24,7 @@ const graph = parse(await Effect.runPromise(fs.readFileString(`${root}features.y
 };
 const spec = await Effect.runPromise(fs.readFileString(`${root}SPEC.md`));
 const specScenarios = new Set(
-  [...spec.matchAll(/^- `((?:m\d|h[23456])\.[a-z0-9-]+)`/gm)].map((m) => m[1]!),
+  [...spec.matchAll(/^- `((?:m\d|h[234567])\.[a-z0-9-]+)`/gm)].map((m) => m[1]!),
 );
 const passed = new Set<string>();
 const failed = new Set<string>();
@@ -94,14 +94,14 @@ function html() {
 const [command, arg] = process.argv.slice(2);
 if (command === "check")
   check(
-    arg === "h2" || arg === "h3" || arg === "h4" || arg === "h5" || arg === "h6"
+    arg === "h2" || arg === "h3" || arg === "h4" || arg === "h5" || arg === "h6" || arg === "h7"
       ? arg
       : Number(arg ?? 0),
   );
 else if (command === "html") html();
 else {
   Effect.runSync(
-    Console.error("usage: node scripts/features.ts check [milestone|h2|h3|h4|h5|h6] | html"),
+    Console.error("usage: node scripts/features.ts check [milestone|h2|h3|h4|h5|h6|h7] | html"),
   );
   process.exit(2);
 }

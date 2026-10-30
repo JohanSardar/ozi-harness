@@ -238,7 +238,11 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
     description:
       "Check a finished worker against real evidence before Review. Supply workspace evidence files (including saved test output when relevant) and a proposed Review ticket. Reads the worker through the GUI, checks on an isolated native Pi fork, then files a verified Review, sends gaps back, or files a blocker/failure. Never treat a worker claim as proof. Optional ticketId updates an existing ticket.",
     parameters: Type.Object({
-      workerId: text,
+      workerId: Type.String({
+        minLength: 1,
+        description:
+          "Task ID (taskId/childNodeId) or child thread ID (childThreadId) returned by delegate_task. Task IDs are resolved through the GUI task tools.",
+      }),
       files: Type.Array(text, { maxItems: 32 }),
       ticket,
       ticketId: Type.Optional(text),
@@ -254,10 +258,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
         db.close();
         throw new Error("missing-request");
       }
-      const before = checks(db).findLast(
-        (row) =>
-          row.session === session && row.request === request && row.workerId === args.workerId,
-      );
+      let before: Check | undefined;
       const record: Check = {
         id: NodeCrypto.randomUUID(),
         session,
@@ -265,7 +266,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
         workerId: args.workerId,
         at: DateTime.formatIso(Effect.runSync(DateTime.now)),
         state: "checking",
-        unsuccessfulRounds: before?.unsuccessfulRounds ?? 0,
+        unsuccessfulRounds: 0,
         verdict: null,
         verified: [],
         evidence: [],
@@ -312,7 +313,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
       };
       const worker = async () => {
         const value = await call(["ozi_thread_read", "t3_thread_read"], {
-          threadId: args.workerId,
+          threadId: record.workerId,
           view: "activity",
           limit: 100,
           maxCharsPerItem: 50000,
@@ -333,7 +334,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
         };
         const runs = value.recentRuns as { runId: string; status: string }[];
         if (
-          thread.threadId !== args.workerId ||
+          thread.threadId !== record.workerId ||
           thread.activeRunId ||
           thread.pendingRequestCount ||
           !runs.some((run) => run.runId === thread.latestRunId && run.status === "completed")
@@ -347,10 +348,28 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
         return value;
       };
       try {
-        save();
         let fingerprint = "";
         let attention: "Decide" | "Do" = "Decide";
         try {
+          const task = await call(["task_status"], { taskId: args.workerId }).catch(() => null);
+          if (task !== null) {
+            if (
+              typeof task !== "object" ||
+              task.taskId !== args.workerId ||
+              typeof task.childThreadId !== "string" ||
+              !task.childThreadId
+            )
+              throw new Error("invalid-worker-task");
+            record.workerId = task.childThreadId;
+          }
+          before = checks(db).findLast(
+            (row) =>
+              row.session === session &&
+              row.request === request &&
+              row.workerId === record.workerId,
+          );
+          record.unsuccessfulRounds = before?.unsuccessfulRounds ?? 0;
+          save();
           const source = await worker();
           const files = await Effect.runPromise(
             Effect.forEach(args.files, (file) => Evidence.read(ctx.cwd, file)).pipe(
@@ -415,18 +434,18 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
               ? error.message
               : "Completion could not be verified. Inspect worker history, evidence files and checker availability.";
         }
+        const previousEvidence = before?.evidence;
         const progress = Boolean(
           fingerprint &&
-          before &&
-          before.evidence.length &&
-          record.evidence.some((entry) => !before.evidence.includes(entry)),
+          previousEvidence?.length &&
+          record.evidence.some((entry) => !previousEvidence.includes(entry)),
         );
         Object.assign(record, settle(record.verdict, record.unsuccessfulRounds, progress));
         if (record.error) record.state = "failed";
         const verdict = record.verdict;
         if (verdict?.verdict === "continue" && record.state !== "blocked") {
           record.action = await call(["ozi_thread_send", "t3_thread_send"], {
-            threadId: args.workerId,
+            threadId: record.workerId,
             message: `Completion check found missing work: ${verdict.missing}\nVerified evidence: ${record.evidence.join(", ")}\nFinish the original request and return real evidence.`,
             mode: "auto",
           });
@@ -459,7 +478,7 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
                   title: `Completion ${group === "Read" ? "failed" : "blocked"}: ${args.ticket.title}`,
                   need: group === "Read" ? "Review the failure." : reason,
                   summary: reason,
-                  markdown: `Worker: ${args.workerId}\n\n${reason}\n\nCheck: ${record.id}`,
+                  markdown: `Worker: ${record.workerId}\n\n${reason}\n\nCheck: ${record.id}`,
                   choices: [],
                   attachments: [],
                   htmlPages: [],
