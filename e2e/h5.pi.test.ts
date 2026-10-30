@@ -39,12 +39,16 @@ async function run(
     | "task-id"
     | "task-duplicate"
     | "task-blocked"
-    | "task-unbound",
+    | "task-unbound"
+    | "history-characters"
+    | "history-pages",
 ) {
   const taskMode = mode.startsWith("task-");
   const blocked = mode === "blocked" || mode === "task-blocked";
   const duplicate = mode === "duplicate" || mode === "task-duplicate";
-  const passed = mode === "done" || mode === "update" || mode === "task-id" || duplicate;
+  const capped = mode === "history-characters" || mode === "history-pages";
+  const paged = mode === "done" || mode === "stale" || taskMode;
+  const passed = mode === "done" || mode === "update" || mode === "task-id" || duplicate || capped;
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "ozi-h5-"));
   const data = NodePath.join(root, "data");
   const real = process.env.OZI_H5_REAL === "1";
@@ -75,27 +79,56 @@ async function run(
   const diff = await exec("git", ["diff", "--", "answer.txt"], { cwd: root });
   await NodeFSP.writeFile(NodePath.join(root, "diff.txt"), diff.stdout);
   let revision = 1;
-  const mcp = await startCompletionMcp(
-    () => ({
-      thread: {
-        threadId: "worker-1",
-        activeRunId: null,
-        latestRunId: "run-1",
-        pendingRequestCount: 0,
-        updatedAt: revision,
-      },
-      recentRuns: [{ runId: "run-1", status: "completed" }],
-      items: [
-        {
-          itemId: "report-1",
-          type: "assistant_message",
-          text: "Done: answer.txt says 42 exactly.",
-          textTruncated: false,
-        },
-      ],
-      hasMore: false,
-      nextPosition: null,
+  const longOutput = "tool output\n".repeat(10_000) + "end of long output";
+  const history = Array.from(
+    { length: mode === "history-pages" ? 101 : paged ? 205 : 1 },
+    (_, i) => ({
+      position: i,
+      itemId: `activity-${i}`,
+      type: "tool_call",
+      text:
+        mode === "history-characters"
+          ? "x".repeat(600_000)
+          : i === 125
+            ? longOutput
+            : `activity ${i}`,
     }),
+  );
+  history.push({
+    position: history.length,
+    itemId: "report-1",
+    type: "assistant_message",
+    text: "Done: answer.txt says 42 exactly.",
+  });
+  const mcp = await startCompletionMcp(
+    (input) => {
+      const rows = history.filter((item) =>
+        input.itemId === undefined
+          ? item.position > Number(input.afterPosition ?? -1)
+          : item.itemId === input.itemId,
+      );
+      const page = rows.slice(0, mode === "history-pages" ? 1 : Number(input.limit ?? 100));
+      const offset = Number(input.textOffset ?? 0);
+      const end = offset + Number(input.maxCharsPerItem ?? 50_000);
+      return {
+        thread: {
+          threadId: "worker-1",
+          activeRunId: null,
+          latestRunId: "run-1",
+          pendingRequestCount: 0,
+          updatedAt: revision,
+        },
+        recentRuns: [{ runId: "run-1", status: "completed" }],
+        items: page.map((item) => ({
+          ...item,
+          text: item.text.slice(offset, end),
+          textTruncated: item.text.length > end,
+          nextTextOffset: item.text.length > end ? end : null,
+        })),
+        hasMore: rows.length > page.length,
+        nextPosition: page.at(-1)?.position ?? null,
+      };
+    },
     taskMode ? { "task-1": mode === "task-unbound" ? null : "worker-1" } : undefined,
   );
   await NodeFSP.writeFile(
@@ -104,6 +137,7 @@ async function run(
   );
   let step = 0;
   let checkerCount = 0;
+  let checkerEvidence = "";
   let inboxStep = 0;
   const fake = await startAnthropic((request) => {
     const system = request.system.map((part) => part.text).join("\n");
@@ -121,6 +155,10 @@ async function run(
       expect(request.tools).toEqual([]);
       expect(request.output_config?.effort).toBe("low");
       expect(system).not.toContain("Before reporting a worker's finished job");
+      checkerEvidence =
+        request.messages
+          .flatMap((message) => message.content as { text?: string }[])
+          .findLast((part) => part.text?.startsWith('{"worker":'))?.text ?? "";
       if (mode === "stale") revision++;
       if (mode === "file-stale")
         NodeFS.writeFileSync(NodePath.join(root, "answer.txt"), "Changed after check.\n");
@@ -311,6 +349,39 @@ async function run(
       ).toBe(true);
       if (duplicate) expect(records).toHaveLength(1);
     }
+    const reads = mcp.calls.filter((call) => call.name === "ozi_thread_read");
+    if (!real && (paged || capped) && mode !== "task-unbound") {
+      const supplied = JSON.parse(checkerEvidence);
+      if (paged) {
+        expect(supplied.worker.items).toHaveLength(206);
+        expect(supplied.worker.items[125].text).toBe(longOutput);
+        expect(supplied.worker.items.at(-1).itemId).toBe("report-1");
+        expect(
+          supplied.worker.items.every((item: { textTruncated: boolean }) => !item.textTruncated),
+        ).toBe(true);
+        expect(supplied.worker.hasMore).toBe(false);
+        expect(supplied.worker.evidenceLimit).toBeUndefined();
+      }
+      if (capped) {
+        expect(supplied.worker.evidenceLimit).toContain("Some history is omitted");
+        expect(supplied.worker.hasMore).toBe(true);
+        if (mode === "history-characters") {
+          expect(supplied.worker.items).toHaveLength(1);
+          expect(supplied.worker.items[0].text).toHaveLength(500_000);
+          expect(supplied.worker.items[0].textTruncated).toBe(true);
+        } else expect(supplied.worker.items).toHaveLength(100);
+      }
+    }
+    if (paged && mode !== "task-unbound") {
+      expect(reads.some((call) => call.input.afterPosition === 99)).toBe(true);
+      expect(reads.some((call) => call.input.afterPosition === 199)).toBe(true);
+      expect(
+        reads
+          .filter((call) => call.input.itemId === "activity-125")
+          .map((call) => call.input.textOffset),
+      ).toContain(100_000);
+    }
+    if (capped) expect(reads).toHaveLength(mode === "history-pages" ? 200 : 20);
     if (!real && mode !== "file-error")
       expect(checkerCount).toBe(mode === "task-unbound" ? 0 : blocked ? 3 : 1);
   } finally {
@@ -338,6 +409,8 @@ if (process.env.OZI_H5_REAL !== "1") {
     "file-stale",
     "duplicate",
     "inbox-worker",
+    "history-characters",
+    "history-pages",
   ] as const)
     it(`h5.${mode.replaceAll("_", "-")} fails closed or routes the checked outcome`, () =>
       run(mode));

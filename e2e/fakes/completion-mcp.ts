@@ -1,7 +1,7 @@
 import * as NodeHttp from "node:http";
 
 export async function startCompletionMcp(
-  worker: () => unknown,
+  worker: (input: Record<string, unknown>) => unknown,
   tasks?: Record<string, string | null>,
 ) {
   const calls: { name: string; input: Record<string, unknown> }[] = [];
@@ -54,7 +54,7 @@ export async function startCompletionMcp(
             ? { taskId: input.taskId, childThreadId: tasks![input.taskId] }
             : { error: { code: "task_not_found" } };
       else if (name === "ozi_thread_read") {
-        value = worker();
+        value = worker(input);
         if ((value as { thread: { threadId: string } }).thread.threadId !== input.threadId)
           value = { error: { code: "thread_not_found" } };
       } else if (name === "ticket_list") value = { tickets };

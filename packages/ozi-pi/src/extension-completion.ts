@@ -10,6 +10,7 @@ import { settle, type Verdict } from "./CompletionPolicy.ts";
 import * as Evidence from "./Evidence.ts";
 import { statePath, textOf } from "./repair.ts";
 import { openStore } from "./store.ts";
+import { workerHistory } from "./WorkerHistory.ts";
 
 const nameOf = (name: string) => name.split(/__|\./).at(-1);
 const hash = (value: unknown) =>
@@ -318,42 +319,10 @@ export function installCompletion(pi: ExtensionAPI, dataRoot: () => string) {
           throw new Error(`gui-tool-failed:${names[0]}`);
         return decoded;
       };
-      const worker = async () => {
-        const value = await call(["ozi_thread_read", "t3_thread_read"], {
-          threadId: record.workerId,
-          view: "activity",
-          limit: 100,
-          maxCharsPerItem: 50000,
-        });
-        if (
-          !value ||
-          typeof value !== "object" ||
-          !("thread" in value) ||
-          !("items" in value) ||
-          !("recentRuns" in value)
-        )
-          throw new Error("invalid-worker-history");
-        const thread = value.thread as {
-          threadId: string;
-          activeRunId: string | null;
-          pendingRequestCount: number;
-          latestRunId: string | null;
-        };
-        const runs = value.recentRuns as { runId: string; status: string }[];
-        if (
-          thread.threadId !== record.workerId ||
-          thread.activeRunId ||
-          thread.pendingRequestCount ||
-          !runs.some((run) => run.runId === thread.latestRunId && run.status === "completed")
-        )
-          throw new Error("worker-not-completed");
-        if (
-          ("hasMore" in value && value.hasMore) ||
-          (value.items as { textTruncated?: boolean }[]).some((item) => item.textTruncated)
-        )
-          throw new Error("incomplete-worker-evidence");
-        return value;
-      };
+      const worker = () =>
+        workerHistory(record.workerId!, (input) =>
+          call(["ozi_thread_read", "t3_thread_read"], input),
+        );
       try {
         let fingerprint = "";
         let attention: "Decide" | "Do" = "Decide";
